@@ -18,8 +18,9 @@ node -e "
   if (!keys.length) { console.log('  暂无'); process.exit(0); }
   keys.forEach(id => {
     const t = reg.tenants[id];
-    const s = t.bound ? '🟢' : '🟡';
-    console.log('  ' + s + ' ' + t.displayName + ' (' + id + ')' + (t.bound ? ' → ' + t.boundPeerId : ''));
+    console.log('  🟢 ' + t.displayName + ' (' + id + ')');
+    console.log('     账号: ' + (t.accountId || '无'));
+    console.log('     创建: ' + t.createdAt);
   });
   console.log('  共 ' + keys.length + ' 个');
 "

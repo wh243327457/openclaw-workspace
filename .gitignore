@@ -50,3 +50,4 @@ scripts/*.sh
 tenants/*
 !tenants/registry.json
 !tenants/*.png
+tenants/*-login.pid
