@@ -1,0 +1,15 @@
+# MEMORY.md
+
+长期记忆。只保留稳定、重要、以后大概率还会用到的信息。
+
+## User
+（Agent 启动后自动填充）
+
+## Preferences
+（Agent 启动后自动填充）
+
+## Decisions
+（Agent 启动后自动填充）
+
+## Memory Policy
+- 默认采用最小化记忆策略：优先记录偏好、项目、决定和承诺，避免记录高敏感个人信息。

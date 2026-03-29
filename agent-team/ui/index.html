@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Team 模型配置</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Noto Sans SC','Microsoft YaHei',sans-serif;background:#0d1117;color:#e6edf3;padding:16px;max-width:1000px;margin:0 auto}
+h1{font-size:22px;margin-bottom:2px}
+.sub{color:#8b949e;margin-bottom:20px;font-size:13px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid #30363d;overflow-x:auto}
+.tab{padding:10px 18px;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0;color:#8b949e;background:0 0;border:none;transition:.15s;white-space:nowrap}
+.tab:hover{color:#e6edf3;background:#161b22}
+.tab.active{color:#e6edf3;background:#161b22;border-bottom:2px solid #58a6ff}
+.panel{display:none;padding-top:16px}
+.panel.active{display:block}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-bottom:12px;transition:.15s}
+.card:hover{border-color:#484f58}
+.card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.card-hd h3{font-size:15px;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500;white-space:nowrap}
+.badge-premium{background:#3a1f1f;color:#f85149}
+.badge-standard{background:#1f2a3a;color:#58a6ff}
+.badge-economy{background:#1f3a2a;color:#3fb950}
+.badge-role{background:#21262d;color:#8b949e}
+.row{display:flex;gap:12px;margin-bottom:8px;align-items:center}
+.row label{width:120px;font-size:13px;color:#8b949e;flex-shrink:0;text-align:right}
+.row .field{flex:1}
+.row input,.row select,.row textarea{width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:7px 10px;font-size:13px;transition:.15s}
+.row input:focus,.row select:focus{outline:none;border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+.sec{font-size:12px;font-weight:600;color:#484f58;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid #21262d}
+.sec:first-child{margin-top:0}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0;display:inline-block}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .sl{position:absolute;inset:0;background:#30363d;border-radius:10px;cursor:pointer;transition:.2s}
+.toggle .sl::before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#e6edf3;border-radius:50%;transition:.2s}
+.toggle input:checked+.sl{background:#58a6ff}
+.toggle input:checked+.sl::before{transform:translateX(16px)}
+.trow{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid #30363d;background:#0d1117;color:#8b949e;cursor:pointer;transition:.15s;user-select:none}
+.chip:hover{border-color:#58a6ff;color:#e6edf3}
+.chip.sel{background:rgba(88,166,255,.15);border-color:#58a6ff;color:#58a6ff}
+.btn{border:none;border-radius:8px;padding:10px 20px;font-size:13px;cursor:pointer;font-weight:500;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-p{background:#238636;color:#fff}.btn-p:hover{background:#2ea043}
+.btn-s{background:#21262d;color:#e6edf3;border:1px solid #30363d}.btn-s:hover{background:#30363d}
+.btn-b{background:#1f6feb;color:#fff}.btn-b:hover{background:#388bfd}
+.btn-sm{padding:6px 14px;font-size:12px}
+.dbtn{background:0 0;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;transition:.15s}
+.dbtn:hover{border-color:#f85149;color:#f85149}
+.btn-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.dot-up{background:#3fb950;box-shadow:0 0 6px rgba(63,185,80,.4)}
+.dot-down{background:#f85149;box-shadow:0 0 6px rgba(248,81,73,.4)}
+.dot-unk{background:#484f58}
+.dot-chk{background:#d29922;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.mc{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;transition:.15s}
+.mc:hover{border-color:#484f58}
+.mc-body{flex:1;min-width:0}
+.mc-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.mc-name{font-size:14px;font-weight:600}
+.mc-meta{font-size:12px;color:#8b949e;display:flex;gap:12px;flex-wrap:wrap}
+.mc-meta span{display:inline-flex;align-items:center;gap:4px}
+.mc-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.mc-acts{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.mc-err{font-size:11px;color:#f85149;margin-top:4px;word-break:break-all;background:#1c1012;padding:4px 8px;border-radius:4px}
+.masked{font-family:monospace;color:#79c0ff}
+.status{font-size:13px;margin-top:12px;padding:8px 12px;border-radius:6px;display:none}
+.status.show{display:block}
+.status.ok{background:rgba(35,134,54,.15);color:#3fb950;border:1px solid rgba(35,134,54,.3)}
+.status.err{background:rgba(218,54,51,.15);color:#f85149;border:1px solid rgba(218,54,51,.3)}
+.expand{display:none;padding:12px 0 0;border-top:1px solid #21262d;margin-top:10px}
+.expand.open{display:block}
+.exbtn{background:0 0;border:none;color:#58a6ff;cursor:pointer;font-size:12px;padding:4px 0}
+.exbtn:hover{text-decoration:underline}
+@media(max-width:600px){.row{flex-direction:column;gap:4px}.row label{width:auto;text-align:left}.mc{flex-direction:column}}
+</style>
+</head>
+<body>
+<h1>🤖 Agent Team 模型配置</h1>
+<p class="sub">在「模型池」注册可用模型，再到「Agent 配置」为每个 Agent 选择模型</p>
+<div class="tabs">
+<button class="tab active" data-p="pool">📦 模型池</button>
+<button class="tab" data-p="agents">🤖 Agent 配置</button>
+<button class="tab" data-p="plans">📋 方案优先级</button>
+<button class="tab" data-p="strategy">🧠 智能策略</button>
+<button class="tab" data-p="general">⚙️ 全局设置</button>
+<button class="tab" data-p="guide">📖 学习指南</button>
+</div>
+
+<div class="panel active" id="panel-pool">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+<div style="font-size:13px;color:#8b949e" id="pool-cnt"></div>
+<div style="display:flex;gap:8px">
+<input id="pool-search" placeholder="🔍 搜索模型..." style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px;width:180px">
+<select id="pool-fprov" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:6px 10px;font-size:13px"><option value="">全部 Provider</option></select>
+<button class="btn btn-p btn-sm" onclick="addModel()">➕ 添加模型</button>
+</div>
+</div>
+<div id="m-editor" style="display:none" class="card"></div>
+<div id="models-list"></div>
+</div>
+
+<div class="panel" id="panel-agents">
+<div id="agents-list"></div>
+<div class="btn-row"><button class="btn btn-s" onclick="addAgent()">➕ 添加 Agent</button></div>
+</div>
+
+<div class="panel" id="panel-plans">
+<div class="card">
+<div class="card-hd"><h3>📋 模型方案优先级</h3></div>
+<p style="font-size:12px;color:#8b949e;margin-bottom:12px">按任务类型配置 Agent 执行顺序</p>
+<div id="plans-list"></div>
+<div class="btn-row"><button class="btn btn-s btn-sm" onclick="addPlan()">➕ 添加方案</button></div>
+</div>
+</div>
+
+<div class="panel" id="panel-strategy">
+<div class="card">
+<div class="card-hd"><h3>🧠 负载均衡</h3></div>
+<div class="row"><label>策略</label><div class="field"><select id="s-bal"><option value="none">关闭</option><option value="round-robin">轮询</option><option value="least-cost">最低成本优先</option></select></div></div>
+</div>
+<div class="card">
+<div class="card-hd"><h3>📈 Token 预算</h3></div>
+<div class="trow"><label class="toggle"><input type="checkbox" id="s-be"><span class="sl"></span></label><span>启用 Token 预算</span></div>
+<div class="row"><label>每月预算</label><div class="field"><input type="number" id="s-mt" placeholder="如 1000000000"></div></div>
+<div class="row"><label>超限行为</label><div class="field"><select id="s-ob"><option value="downgrade">降级到便宜模型</option><option value="block">阻断请求</option></select></div></div>
+</div>
+<div class="card">
+<div class="card-hd"><h3>⏰ 时段优惠</h3></div>
+<div class="trow"><label class="toggle"><input type="checkbox" id="s-te"><span class="sl"></span></label><span>启用时段优惠</span></div>
+<div id="ts-list"></div>
+<div class="btn-row"><button class="btn btn-s btn-sm" onclick="addSlot()">➕ 添加时段</button></div>
+</div>
+<div class="card">
+<div class="card-hd"><h3>🔧 工具路由</h3></div>
+<p style="font-size:12px;color:#8b949e;margin-bottom:12px">指定工具由特定 Agent 处理</p>
+<div id="tr-list"></div>
+<div class="btn-row"><button class="btn btn-s btn-sm" onclick="addTR()">➕ 添加路由</button></div>
+</div>
+</div>
+
+<div class="panel" id="panel-general">
+<div class="card">
+<div class="card-hd"><h3>🌍 全局默认</h3></div>
+<div class="row"><label>默认 Agent</label><div class="field"><select id="g-da"></select></div></div>
+<div class="row"><label>全局温度</label><div class="field"><input type="number" id="g-temp" step="0.1" min="0" max="2" placeholder="0.7"></div></div>
+<div class="row"><label>Max Tokens</label><div class="field"><input type="number" id="g-mt" placeholder="留空使用模型默认"></div></div>
+</div>
+<div class="card">
+<div class="card-hd"><h3>🔄 切换通知</h3></div>
+<div class="trow"><label class="toggle"><input type="checkbox" id="sp-n"><span class="sl"></span></label><span>模型切换时通知用户</span></div>
+<div class="trow"><label class="toggle"><input type="checkbox" id="sp-b"><span class="sl"></span></label><span>备份模型时阻断设计类任务</span></div>
+<div class="trow"><label class="toggle"><input type="checkbox" id="sp-c"><span class="sl"></span></label><span>切换时自动做节点归纳</span></div>
+</div>
+</div>
+
+<div class="panel" id="panel-guide">
+<div class="card">
+<div class="card-hd"><h3>📖 AI 应用开发学习指南</h3><button class="btn btn-s btn-sm" onclick="window.open('/api/doc/ai-dev-guide.md')">📥 下载 .md</button></div>
+<div id="guide-content" style="font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:70vh;overflow-y:auto;color:#c9d1d9">加载中...</div>
+</div>
+</div>
+
+<div class="btn-row" style="margin-top:20px;padding-top:16px;border-top:1px solid #30363d">
+<button class="btn btn-p" onclick="saveAll()">💾 保存到服务器</button>
+<button class="btn btn-b" onclick="loadAll()">🔄 重新加载</button>
+<button class="btn btn-s" onclick="window.open('/api/doc/ai-dev-guide.md')">📥 下载学习指南</button>
+</div>
+<div class="status" id="status"></div>
+
+<script>
+let C=null,HS=null;
+const PR=[{v:'openrouter',l:'OpenRouter'},{v:'openai',l:'OpenAI'},{v:'anthropic',l:'Anthropic'},{v:'deepseek',l:'DeepSeek'},{v:'moonshot',l:'Moonshot'},{v:'minimax',l:'MiniMax'},{v:'zhipu',l:'智谱'},{v:'qwen',l:'通义千问'},{v:'siliconflow',l:'SiliconFlow'},{v:'groq',l:'Groq'},{v:'mistral',l:'Mistral'},{v:'google',l:'Google'}];
+const CT=[{v:'premium',l:'💎 高端',c:'badge-premium'},{v:'standard',l:'⚡ 标准',c:'badge-standard'},{v:'economy',l:'💰 经济',c:'badge-economy'}];
+const RL=[{v:'coordinator',l:'总协调'},{v:'coding',l:'代码生成'},{v:'design',l:'UI设计'},{v:'daily',l:'日常助手'},{v:'group',l:'群聊管理'},{v:'memory',l:'记忆管理'},{v:'skills',l:'技能开发'},{v:'execution',l:'项目执行'},{v:'review',l:'审查复核'},{v:'research',l:'搜索研究'}];
+const TT=[{v:'planning',l:'规划任务'},{v:'coding',l:'编码任务'},{v:'research',l:'搜索调研'},{v:'analysis',l:'数据分析'},{v:'creative',l:'创意写作'},{v:'chat',l:'日常聊天'},{v:'code_review',l:'代码审查'},{v:'writing',l:'文案撰写'}];
+const GP=[{v:'silent',l:'沉默模式'},{v:'active',l:'主动参与'},{v:'mention-only',l:'仅被@回复'},{v:'silent-monitor',l:'静默+汇报'},{v:'active-monitor',l:'主动+汇报'}];
+const PRESETS=[
+{id:'gpt-5.4',label:'GPT-5.4',provider:'openrouter',modelName:'openai/gpt-5.4',maxTokens:1050000,costTier:'premium',tags:['coding','reasoning','creative','analysis']},
+{id:'gpt-5.3-codex',label:'GPT-5.3 Codex',provider:'openrouter',modelName:'openai/gpt-5.3-codex',maxTokens:400000,costTier:'premium',tags:['coding','reasoning']},
+{id:'gpt-5.2',label:'GPT-5.2',provider:'openrouter',modelName:'openai/gpt-5.2',maxTokens:400000,costTier:'standard',tags:['coding','chat','daily']},
+{id:'gpt-5.1-codex-mini',label:'GPT-5.1 Codex Mini',provider:'openrouter',modelName:'openai/gpt-5.1-codex-mini',maxTokens:400000,costTier:'economy',tags:['coding','chat']},
+{id:'claude-sonnet-4.6',label:'Claude Sonnet 4.6',provider:'openrouter',modelName:'anthropic/claude-sonnet-4.6',maxTokens:1000000,costTier:'premium',tags:['coding','reasoning','creative']},
+{id:'deepseek-v3.2',label:'DeepSeek V3.2',provider:'openrouter',modelName:'deepseek/deepseek-v3.2',maxTokens:163840,costTier:'economy',tags:['coding','chat','daily']},
+{id:'mimo-v2-pro',label:'MiMo V2 Pro',provider:'openrouter',modelName:'xiaomi/mimo-v2-pro',maxTokens:1048576,costTier:'economy',tags:['chat','daily','coding']},
+{id:'minimax-m2.5',label:'MiniMax M2.5',provider:'openrouter',modelName:'minimax/minimax-m2.5',maxTokens:196608,costTier:'standard',tags:['coding','reasoning','creative']},
+];
+// Tab
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+t.classList.add('active');
+document.getElementById('panel-'+t.dataset.p).classList.add('active');
+}));
+// Utils
+function E(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function sel(o,c,p){let h='<option value="">'+(p||'请选择...')+'</option>';for(const x of o)h+='<option value="'+x.v+'" '+(x.v===c?'selected':'')+'>'+x.l+'</option>';return h}
+function pL(p){return(PR.find(x=>x.v===p)||{}).l||p}
+function cB(t){const x=CT.find(c=>c.v===t);return x?'<span class="badge '+x.c+'">'+x.l+'</span>':''}
+function rB(r){const x=RL.find(c=>c.v===r);return x?'<span class="badge badge-role">'+x.l+'</span>':''}
+function st(m,i){const el=document.getElementById('status');el.textContent=m;el.className='status show '+(i?'err':'ok');setTimeout(()=>el.className='status',4000)}
+function mkChips(o,cur,id){const a=Array.isArray(cur)?cur:[];let h='<div class="chips" id="'+id+'">';for(const x of o)h+='<span class="chip '+(a.includes(x.v)?'sel':'')+'" data-v="'+x.v+'" onclick="tChip(this)">'+x.l+'</span>';h+='<input type="hidden" id="'+id+'-v" value="'+a.join(',')+'"></div>';return h}
+function tChip(el){el.classList.toggle('sel');const c=el.parentElement,h=c.querySelector('input[type=hidden]');h.value=[...c.querySelectorAll('.chip.sel')].map(x=>x.dataset.v).join(',')}
+function mask(k){if(!k)return'';if(k.length<=12)return k.slice(0,4)+'***';return k.slice(0,4)+'...'+k.slice(-4)}
+// Ensure
+function eM(){if(!C.models)C.models=[]}
+// Health
+function lH(){fetch('/api/health').then(r=>r.ok?r.json():null).then(d=>{if(!d)return;HS=d;rM()}).catch(()=>{})}
+function chkM(mn,btn){
+btn.textContent='⏳';btn.disabled=true;btn.style.borderColor='#d29922';btn.style.color='#d29922';
+fetch('/api/health/check-model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelName:mn})})
+.then(r=>r.json()).then(d=>{
+if(d.ok){btn.textContent='✅';btn.style.borderColor='#3fb950';btn.style.color='#3fb950'}
+else{btn.textContent='❌';btn.style.borderColor='#f85149';btn.style.color='#f85149';
+const card=btn.closest('.mc'),ex=card.querySelector('.mc-err');if(ex)ex.remove();
+const div=document.createElement('div');div.className='mc-err';div.textContent='⚠️ '+(d.error||'检测失败').slice(0,200);
+card.querySelector('.mc-body').appendChild(div)}
+lH();setTimeout(()=>{btn.disabled=false;btn.textContent='检测';btn.style.borderColor='';btn.style.color=''},3000)
+}).catch(()=>{btn.textContent='❌';btn.style.borderColor='#f85149';btn.disabled=false;setTimeout(()=>{btn.textContent='检测';btn.style.borderColor=''},3000)})
+}
+// Models
+function rM(){
+eM();const list=document.getElementById('models-list');
+const q=(document.getElementById('pool-search')?.value||'').toLowerCase();
+const fp=document.getElementById('pool-fprov')?.value||'';
+const fl=C.models.filter(m=>{if(fp&&m.provider!==fp)return false;if(q){const h=[m.label,m.modelName,m.provider,...(m.tags||[])].join(' ').toLowerCase();if(!h.includes(q))return false}return true});
+document.getElementById('pool-cnt').textContent='共 '+C.models.length+' 个模型，显示 '+fl.length+' 个';
+const pS=document.getElementById('pool-fprov'),cP=pS.value;
+let pO='<option value="">全部 Provider</option>';
+[...new Set(C.models.map(m=>m.provider))].forEach(p=>pO+='<option value="'+p+'" '+(p===cP?'selected':'')+'>'+pL(p)+'</option>');
+pS.innerHTML=pO;
+let h='';
+for(const m of fl){
+const idx=C.models.indexOf(m),hs=(HS?.models||{})[m.modelName]||{},
+dc=hs.status==='up'?'dot-up':hs.status==='down'?'dot-down':'dot-unk',
+lat=hs.latency?hs.latency+'ms':'-',
+he=hs.lastError||'',
+hc=hs.status==='up'?'#3fb950':hs.status==='down'?'#f85149':'#484f58',
+hl=hs.status==='up'?'正常':hs.status==='down'?'异常':'未检测';
+h+='<div class="mc" data-idx="'+idx+'"><div class="mc-body"><div class="mc-hd"><span class="dot '+dc+'"></span><span class="mc-name">'+E(m.label)+'</span>'+cB(m.costTier)+'</div>';
+h+='<div class="mc-meta"><span>🏭 '+pL(m.provider)+'</span><span>📦 <code style="color:#79c0ff">'+E(m.modelName)+'</code></span>';
+if(m.maxTokens)h+='<span>🔢 '+(m.maxTokens/1000).toFixed(0)+'K</span>';
+h+='<span style="color:'+hc+'">⏱ '+lat+' · '+hl+'</span></div>';
+if(he)h+='<div class="mc-err">⚠️ '+E(he.slice(0,150))+'</div>';
+if(m.tags&&m.tags.length)h+='<div class="mc-tags">'+m.tags.map(t=>'<span class="badge badge-role" style="font-size:10px">'+t+'</span>').join('')+'</div>';
+h+='</div><div class="mc-acts">';
+h+='<button class="dbtn" onclick="chkM(\''+E(m.modelName)+'\',this)" style="border-color:'+hc+';color:'+hc+'">检测</button>';
+h+='<button class="dbtn" onclick="editM('+idx+')" style="border-color:#58a6ff;color:#58a6ff">编辑</button>';
+h+='<button class="dbtn" onclick="cloneM('+idx+')" style="border-color:#d29922;color:#d29922">克隆</button>';
+h+='<button class="dbtn" onclick="rmM('+idx+')">删除</button></div></div>'}
+list.innerHTML=h||'<div style="text-align:center;color:#484f58;padding:40px;font-size:14px">暂无模型，点击「添加模型」开始</div>'}
+function addModel(){
+eM();
+const h='<div class="card-hd"><h3>➕ 添加模型</h3></div><div class="sec">快速选择常用模型</div><div class="chips" style="margin-bottom:12px">'+PRESETS.map(p=>'<span class="chip" onclick="pickPreset(this,\''+p.modelName+'\')" data-mn="'+p.modelName+'">'+p.label+'</span>').join('')+'</div><div class="sec">或手动配置</div>'+mForm({})+'<div class="btn-row"><button class="btn btn-p" onclick="saveM(-1)">💾 保存</button><button class="btn btn-s" onclick="cancelME()">取消</button></div>';
+const ed=document.getElementById('m-editor');ed.style.display='block';ed.innerHTML=h;ed.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function pickPreset(el,mn){
+const p=PRESETS.find(x=>x.modelName===mn);if(!p)return;
+document.querySelectorAll('#m-editor .chip').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');
+document.getElementById('me-l').value=p.label;
+document.getElementById('me-p').value=p.provider;
+document.getElementById('me-mn').value=p.modelName;
+if(document.getElementById('me-mt'))document.getElementById('me-mt').value=p.maxTokens||'';
+document.getElementById('me-ct').value=p.costTier;
+document.getElementById('me-t').value=(p.tags||[]).join(', ')}
+function editM(idx){const m=C.models[idx];const ed=document.getElementById('m-editor');ed.style.display='block';ed.innerHTML='<div class="card-hd"><h3>✏️ 编辑模型</h3></div>'+mForm(m)+'<div class="btn-row"><button class="btn btn-p" onclick="saveM('+idx+')">💾 保存</button><button class="btn btn-s" onclick="cancelME()">取消</button></div>';ed.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function mForm(m){
+return'<div class="row"><label>显示名称</label><div class="field"><input id="me-l" value="'+E(m.label)+'" placeholder="如 GPT-5.4"></div></div>'+
+'<div class="row"><label>Provider</label><div class="field"><select id="me-p">'+sel(PR,m.provider)+'</select></div></div>'+
+'<div class="row"><label>模型标识</label><div class="field"><input id="me-mn" value="'+E(m.modelName)+'" placeholder="如 openai/gpt-5.4"></div></div>'+
+'<div class="row"><label>Base URL</label><div class="field"><input id="me-bu" value="'+E(m.baseUrl)+'" placeholder="留空使用默认"></div></div>'+
+'<div class="row"><label>API Key</label><div class="field"><input id="me-ak" value="'+E(m.apiKeyRef)+'" placeholder="环境变量名或 Key 值"></div></div>'+
+'<div class="row"><label>最大 Tokens</label><div class="field"><input type="number" id="me-mt" value="'+(m.maxTokens||'')+'" placeholder="如 128000"></div></div>'+
+'<div class="row"><label>成本等级</label><div class="field"><select id="me-ct">'+sel(CT,m.costTier)+'</select></div></div>'+
+'<div class="row"><label>标签</label><div class="field"><input id="me-t" value="'+((m.tags||[]).join(', '))+'" placeholder="逗号分隔"></div></div>'+
+'<div class="btn-row"><button class="btn btn-b btn-sm" onclick="testME()" id="me-test-btn">🧪 测试连接</button><span id="me-test-result" style="font-size:13px;margin-left:8px"></span></div>'}
+function saveM(idx){
+eM();const model={
+label:document.getElementById('me-l').value.trim(),
+provider:document.getElementById('me-p').value,
+modelName:document.getElementById('me-mn').value.trim(),
+baseUrl:document.getElementById('me-bu').value.trim()||null,
+apiKeyRef:document.getElementById('me-ak').value.trim()||null,
+maxTokens:parseInt(document.getElementById('me-mt').value)||null,
+costTier:document.getElementById('me-ct').value,
+tags:document.getElementById('me-t').value.split(',').map(s=>s.trim()).filter(Boolean)};
+if(!model.label||!model.modelName){st('❌ 名称和模型标识不能为空',1);return}
+if(idx>=0)C.models[idx]=model;else C.models.push(model);
+cancelME();rM();rA();st(idx>=0?'✅ 已更新':'✅ 已添加')}
+function cancelME(){document.getElementById('m-editor').style.display='none'}
+
+function testME(){
+const btn=document.getElementById('me-test-btn'),res=document.getElementById('me-test-result');
+const mn=document.getElementById('me-mn').value.trim();
+if(!mn){res.textContent='❌ 请先填写模型标识';res.style.color='#f85149';return}
+btn.textContent='⏳ 测试中...';btn.disabled=true;res.textContent='';
+fetch('/api/health/check-model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelName:mn})})
+.then(r=>r.json()).then(d=>{
+if(d.ok){btn.textContent='✅ 连接成功';btn.style.background='#238636';res.textContent=d.latency+'ms';res.style.color='#3fb950'}
+else{btn.textContent='❌ 连接失败';btn.style.background='#da3633';res.textContent=d.error||'未知错误';res.style.color='#f85149'}
+setTimeout(()=>{btn.textContent='🧪 测试连接';btn.disabled=false;btn.style.background=''},4000)
+}).catch(e=>{btn.textContent='❌ 请求失败';btn.style.background='#da3633';res.textContent=e.message;res.style.color='#f85149';setTimeout(()=>{btn.textContent='🧪 测试连接';btn.disabled=false;btn.style.background=''},4000)})}
+function cloneM(idx){
+eM();const m=JSON.parse(JSON.stringify(C.models[idx]));
+m.id=(m.id||'clone')+'-copy';m.label=m.label+' (副本)';
+C.models.push(m);rM();st('✅ 已克隆')}
+function rmM(idx){
+const m=C.models[idx],used=[];
+for(const[id,a]of Object.entries(C.agents||{})){if(a.defaultModel===m.modelName||(a.fallbackModels||[]).includes(m.modelName))used.push(a.label||id)}
+if(used.length&&!confirm('模型「'+m.label+'」正被使用：\n'+used.join(', ')+'\n确定删除？'))return;
+C.models.splice(idx,1);rM();rA()}
+// Agents
+function rA(){
+const agents=C.agents||{};let h='';
+for(const[id,a]of Object.entries(agents))h+=rAC(id,a);
+document.getElementById('agents-list').innerHTML=h;rDA()}
+function rAC(id,a){
+return'<div class="card" data-aid="'+id+'"><div class="card-hd"><h3>'+rB(a.role)+' '+E(a.label)+'</h3><button class="dbtn" onclick="this.closest(\'.card\').remove()">删除</button></div>'+
+'<div class="sec">基础信息</div>'+
+'<div class="row"><label>显示名称</label><div class="field"><input data-k="label" value="'+E(a.label)+'"></div></div>'+
+'<div class="row"><label>角色</label><div class="field"><select data-k="role">'+sel(RL,a.role)+'</select></div></div>'+
+'<div class="row"><label>群聊策略</label><div class="field"><select data-k="groupPolicy">'+sel(GP,a.groupPolicy||'silent')+'</select></div></div>'+
+'<div class="row"><label>对外可见</label><div class="field"><label class="toggle"><input type="checkbox" data-k="userFacing" '+(a.userFacing?'checked':'')+'><span class="sl"></span></label></div></div>'+
+'<div class="row"><label>允许任务覆盖</label><div class="field"><label class="toggle"><input type="checkbox" data-k="allowTaskOverride" '+(a.allowTaskOverride!==false?'checked':'')+'><span class="sl"></span></label></div></div>'+
+'<div class="sec">模型选择 <span style="font-weight:400;text-transform:none;font-size:11px;color:#484f58">（从模型池选）</span></div>'+
+'<div class="row"><label>默认模型</label><div class="field"><select data-k="defaultModel">'+mOpts(a.defaultModel)+'</select></div></div>'+
+'<div class="row"><label>备选模型</label><div class="field">'+mChips(a.fallbackModels||[],'fb-'+id)+'</div></div>'+
+'<button class="exbtn" onclick="this.nextElementSibling.classList.toggle(\'open\');this.textContent=this.nextElementSibling.classList.contains(\'open\')?\'收起 ▲\':\'展开高级设置 ▼\'">展开高级设置 ▼</button>'+
+'<div class="expand"><div class="row"><label>Provider 覆盖</label><div class="field"><input data-k="provider" value="'+E(a.provider||'')+'" placeholder="留空跟随模型池"></div></div>'+
+'<div class="row"><label>Base URL 覆盖</label><div class="field"><input data-k="baseUrl" value="'+E(a.baseUrl||'')+'" placeholder="留空跟随模型池"></div></div>'+
+'<div class="row"><label>API Key 覆盖</label><div class="field"><input data-k="apiKeyRef" value="'+E(a.apiKeyRef||'')+'" placeholder="留空跟随模型池"></div></div>'+
+'<div class="row"><label>类名</label><div class="field"><input data-k="className" value="'+E(a.className||'')+'"></div></div></div></div>'}
+function mOpts(sel_v){eM();let h='<option value="">请选择...</option>';for(const m of C.models)h+='<option value="'+m.modelName+'" '+(m.modelName===sel_v?'selected':'')+'>'+m.label+' ('+pL(m.provider)+')</option>';if(sel_v&&!C.models.find(m=>m.modelName===sel_v))h+='<option value="'+sel_v+'" selected>⚠️ '+sel_v+'（不在池中）</option>';return h}
+function mChips(cur,id){eM();const a=Array.isArray(cur)?cur:[];let h='<div class="chips" id="'+id+'">';for(const m of C.models)h+='<span class="chip '+(a.includes(m.modelName)?'sel':'')+'" data-v="'+m.modelName+'" onclick="tChip(this)">'+m.label+'</span>';h+='<input type="hidden" id="'+id+'-v" value="'+a.join(',')+'"></div>';return h}
+function rAgents(){
+const cards=document.querySelectorAll('#agents-list .card'),agents={};
+cards.forEach(c=>{const id=c.dataset.aid;if(!id)return;const a={
+label:c.querySelector('[data-k=label]').value,
+role:c.querySelector('[data-k=role]').value,
+defaultModel:c.querySelector('[data-k=defaultModel]').value,
+groupPolicy:c.querySelector('[data-k=groupPolicy]').value,
+userFacing:c.querySelector('[data-k=userFacing]').checked,
+allowTaskOverride:c.querySelector('[data-k=allowTaskOverride]').checked,
+provider:c.querySelector('[data-k=provider]').value||null,
+baseUrl:c.querySelector('[data-k=baseUrl]').value||null,
+apiKeyRef:c.querySelector('[data-k=apiKeyRef]').value||null,
+className:c.querySelector('[data-k=className]').value||null};
+const fb=document.getElementById('fb-'+id+'-v');a.fallbackModels=fb?fb.value.split(',').filter(Boolean):[];
+agents[id]=a});C.agents=agents}
+function addAgent(){if(!C.agents)C.agents={};const id='new-'+Date.now();C.agents[id]={label:'新 Agent',role:'daily',defaultModel:'',fallbackModels:[],provider:null,baseUrl:null,apiKeyRef:null,className:null,userFacing:false,allowTaskOverride:true,groupPolicy:'silent'};rA()}
+function rDA(){const sel_el=document.getElementById('g-da');if(!sel_el)return;let h='';for(const[id,a]of Object.entries(C.agents||{}))h+='<option value="'+id+'" '+(id===C.defaultAgent?'selected':'')+'>'+a.label+'</option>';sel_el.innerHTML=h}
+// Plans
+function rP(){
+const plans=C.modelPlans||[],ao=Object.entries(C.agents||{}).map(([id,a])=>({v:id,l:a.label||id}));let h='';
+plans.forEach((p,i)=>{h+='<div class="plan-item" style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px"><div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><div class="row"><label style="width:70px">任务</label><div class="field"><select data-k="ptt">'+sel(TT,p.taskType)+'</select></div></div></div><button class="dbtn" onclick="this.closest(\'.plan-item\').remove()">删除</button></div><div class="row"><label style="width:70px">Agent</label><div class="field">'+mkChips(ao,p.order,'po-'+i)+'</div></div></div>'});
+document.getElementById('plans-list').innerHTML=h}
+function rPlans(){const items=document.querySelectorAll('#plans-list .plan-item');C.modelPlans=[...items].map((it,i)=>({taskType:it.querySelector('[data-k=ptt]').value,order:(document.getElementById('po-'+i+'-v')?.value||'').split(',').filter(Boolean)})).filter(p=>p.taskType)}
+function addPlan(){if(!C.modelPlans)C.modelPlans=[];C.modelPlans.push({taskType:'coding',order:[]});rP()}
+// Strategy
+function rS(){
+const ss=C.smartStrategy||{},lb=ss.loadBalancing||{};
+document.getElementById('s-bal').value=lb.strategy||'none';
+const tb=ss.tokenBudget||{};document.getElementById('s-be').checked=!!tb.enabled;document.getElementById('s-mt').value=tb.monthlyTokens??'';document.getElementById('s-ob').value=tb.overBudgetAction||'downgrade';
+const tr=ss.timeBasedRouting||{};document.getElementById('s-te').checked=!!tr.enabled;rSlots(tr.peakHours||[]);rTRs()}
+function rS2(){
+if(!C.smartStrategy)C.smartStrategy={};const ss=C.smartStrategy;
+ss.loadBalancing={enabled:document.getElementById('s-bal').value!=='none',strategy:document.getElementById('s-bal').value};
+ss.tokenBudget={enabled:document.getElementById('s-be').checked,monthlyTokens:parseInt(document.getElementById('s-mt').value)||null,overBudgetAction:document.getElementById('s-ob').value};
+ss.timeBasedRouting={enabled:document.getElementById('s-te').checked,peakHours:rSlotsR()}}
+function rSlots(sl){let h='';sl.forEach(s=>{h+='<div class="slot-item" style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><div style="flex:1;min-width:80px"><div class="row"><label style="width:40px">从</label><div class="field"><input type="number" data-k="ss" min="0" max="23" value="'+s.start+'"></div></div></div><div style="flex:1;min-width:80px"><div class="row"><label style="width:40px">到</label><div class="field"><input type="number" data-k="se" min="0" max="23" value="'+s.end+'"></div></div></div><div style="flex:2;min-width:140px"><div class="row"><label style="width:40px">模式</label><div class="field"><select data-k="sm"><option value="peak" '+(s.mode==='peak'?'selected':'')+'>🔥 高峰</option><option value="off-peak" '+(s.mode==='off-peak'?'selected':'')+'>📉 低谷</option></select></div></div></div><button class="dbtn" onclick="this.closest(\'.slot-item\').remove()">删除</button></div>'});document.getElementById('ts-list').innerHTML=h}
+function rSlotsR(){return[...document.querySelectorAll('#ts-list .slot-item')].map(it=>({start:parseInt(it.querySelector('[data-k=ss]').value),end:parseInt(it.querySelector('[data-k=se]').value),mode:it.querySelector('[data-k=sm]').value})).filter(s=>!isNaN(s.start)&&!isNaN(s.end))}
+function addSlot(){const d=document.createElement('div');d.className='slot-item';d.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap';d.innerHTML='<div style="flex:1;min-width:80px"><div class="row"><label style="width:40px">从</label><div class="field"><input type="number" data-k="ss" min="0" max="23" value="9"></div></div></div><div style="flex:1;min-width:80px"><div class="row"><label style="width:40px">到</label><div class="field"><input type="number" data-k="se" min="0" max="23" value="18"></div></div></div><div style="flex:2;min-width:140px"><div class="row"><label style="width:40px">模式</label><div class="field"><select data-k="sm"><option value="peak">🔥 高峰</option><option value="off-peak">📉 低谷</option></select></div></div></div><button class="dbtn" onclick="this.closest(\'.slot-item\').remove()">删除</button>';document.getElementById('ts-list').appendChild(d)}
+function rTRs(){const routes=C.toolRoutes||[],ai=Object.keys(C.agents||{});let h='';routes.forEach(r=>{h+='<div class="tr-item" style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><div class="row"><label style="width:50px">工具</label><div class="field"><input data-k="tn" value="'+E(r.toolName)+'" placeholder="如 Read、Write"></div></div></div><div style="flex:1;min-width:160px"><div class="row"><label style="width:50px">Agent</label><div class="field"><select data-k="ta"><option value="">使用默认</option>'+ai.map(id=>'<option value="'+id+'" '+(id===r.agentId?'selected':'')+'>'+(C.agents[id]?.label||id)+'</option>').join('')+'</select></div></div></div><button class="dbtn" onclick="this.closest(\'.tr-item\').remove()">删除</button></div>'});document.getElementById('tr-list').innerHTML=h}
+function rTR(){C.toolRoutes=[...document.querySelectorAll('#tr-list .tr-item')].map(it=>({toolName:it.querySelector('[data-k=tn]').value,agentId:it.querySelector('[data-k=ta]').value||null})).filter(r=>r.toolName)}
+function addTR(){if(!C.toolRoutes)C.toolRoutes=[];C.toolRoutes.push({toolName:'',agentId:null});rTRs()}
+// General
+function rG(){
+const sp=C.switchPolicy||{};document.getElementById('sp-n').checked=!!sp.notifyUser;document.getElementById('sp-b').checked=!!sp.blockOnDesign;document.getElementById('sp-c').checked=!!sp.checkpointOnFallback;
+document.getElementById('g-temp').value=C.temperature??'';document.getElementById('g-mt').value=C.maxTokens??'';rDA()}
+function rG2(){
+C.defaultAgent=document.getElementById('g-da').value;
+const t=parseFloat(document.getElementById('g-temp').value);C.temperature=isNaN(t)?null:t;
+const mt=parseInt(document.getElementById('g-mt').value);C.maxTokens=isNaN(mt)?null:mt;
+if(!C.switchPolicy)C.switchPolicy={};C.switchPolicy.notifyUser=document.getElementById('sp-n').checked;C.switchPolicy.blockOnDesign=document.getElementById('sp-b').checked;C.switchPolicy.checkpointOnFallback=document.getElementById('sp-c').checked}
+// All
+function renderAll(){if(!C)return;rM();rA();rP();rS();rG()}
+function readAll(){rAgents();rPlans();rS2();rG2()}
+// Server
+function loadAll(){
+fetch('/api/config').then(r=>r.ok?r.json():null).then(d=>{if(!d)return;C=d;renderAll();lH();st('✅ 已加载')}).catch(e=>st('❌ 加载失败: '+e,1))}
+function saveAll(){
+readAll();fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(C,null,2)})
+.then(r=>r.json()).then(d=>st(d.ok?'✅ 已保存':'❌ 失败: '+(d.error||''),!d.ok)).catch(e=>st('❌ 失败: '+e,1))}
+// Events
+document.getElementById('pool-search').addEventListener('input',rM);
+document.getElementById('pool-fprov').addEventListener('change',rM);
+setInterval(lH,30000);
+
+// Guide loader
+function loadGuide(){
+const el=document.getElementById('guide-content');
+if(el.dataset.loaded)return;
+fetch('/api/doc/ai-dev-guide.md').then(r=>r.ok?r.text():null).then(t=>{
+if(!t){el.textContent='文档不存在';return}
+// Basic markdown to HTML
+let h=E(t);
+h=h.replace(/^### (.+)$/gm,'<h3 style="color:#58a6ff;margin:16px 0 8px;font-size:15px">$1</h3>');
+h=h.replace(/^## (.+)$/gm,'<h2 style="color:#e6edf3;margin:20px 0 10px;font-size:17px;border-bottom:1px solid #30363d;padding-bottom:6px">$1</h2>');
+h=h.replace(/^# (.+)$/gm,'<h1 style="color:#e6edf3;margin:12px 0;font-size:20px">$1</h1>');
+h=h.replace(/\*\*(.+?)\*\*/g,'<strong style="color:#e6edf3">$1</strong>');
+h=h.replace(/`([^`]+)`/g,'<code style="background:#161b22;padding:2px 6px;border-radius:4px;color:#79c0ff;font-size:12px">$1</code>');
+h=h.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre style="background:#161b22;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;line-height:1.5;color:#c9d1d9;margin:8px 0"><code>$2</code></pre>');
+el.innerHTML=h;el.dataset.loaded='1'}).catch(()=>{el.textContent='加载失败'})}
+// Auto-load guide on tab switch
+const origSwitch=Document.prototype.querySelector;
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.p==='guide')loadGuide()}));
+
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# OpenClaw workspace .gitignore
+
+# 个人/敏感文件
+MEMORY.md
+USER.md
+IDENTITY.md
+TOOLS.md
+.openclaw/
+
+# 内部目录
+memory/
+reviews/
+exports/
+skills/
+shared-memory/
+repo-templates/
+agent-team/checkpoints/
+
+# 运行时文件
+agent-team/health-state.json
+agent-team/health-log.json
+agent-team/ui/archive/
+*.log
+node_modules/
+.clobbered.*
+
+# 实例特有文件
+HEARTBEAT.md
+LOCAL-DEPLOYMENT.md
+WORKFLOW-CHECKLIST.md
+ai-dev-guide.md
+shared-memory-repo-template.md
+memory-system-architecture.md
+
+# 大部分脚本（只保留 init 和 clone）
+scripts/*.sh
+!scripts/init-workspace.sh
+!scripts/clone-workspace.sh

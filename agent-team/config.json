@@ -1,0 +1,220 @@
+{
+  "version": 2,
+  "mainAssistant": "main-assistant",
+  "ui": {
+    "editable": true,
+    "sourceOfTruth": "agent-team/config.json"
+  },
+  "switchPolicy": {
+    "notifyUser": true,
+    "blockOnDesign": true,
+    "checkpointOnFallback": true
+  },
+  "models": [
+    {
+      "label": "MiMo V2 Pro",
+      "provider": "openrouter",
+      "modelName": "xiaomi/mimo-v2-pro",
+      "baseUrl": null,
+      "apiKeyRef": "OPENROUTER_API_KEY",
+      "maxTokens": 1048576,
+      "costTier": "standard",
+      "tags": [
+        "chat",
+        "daily",
+        "coding"
+      ]
+    },
+    {
+      "label": "MiniMax-M2.7",
+      "provider": "minimax",
+      "modelName": "MiniMax-M2.7",
+      "baseUrl": "https://api.minimaxi.com/anthropic/v1",
+      "apiKeyRef": "sk-cp--q-XX4CZCS-NfNBKNxxmNMMlzVePRG1f5nsBE_Fhfd-f2V9SY80YYqBBbWJ_bqQ87LvD3toH36XzZpKt3RYeXYrTD2ldMRMuinDKt4RRpJSyjNuDg0gJeVI",
+      "maxTokens": 1050000,
+      "costTier": "economy",
+      "tags": [
+        "chat",
+        "daily",
+        "analysis"
+      ]
+    },
+    {
+      "label": "Kimi K2.5",
+      "provider": "openai",
+      "modelName": "kimi-k2.5",
+      "baseUrl": "https://api.kimi.com/coding/",
+      "apiKeyRef": "sk-kimi-9YAMhfHwlMdeieLDjyxXS2Iazkn6FmP5pFJyy7qxcd9ACV5OXo6oc469ueNaUm0Q",
+      "maxTokens": 196608,
+      "costTier": "economy",
+      "tags": [
+        "reasoning",
+        "creative"
+      ]
+    }
+  ],
+  "agents": {
+    "main-assistant": {
+      "label": "主助手",
+      "role": "coordinator",
+      "defaultModel": "xiaomi/mimo-v2-pro",
+      "groupPolicy": "active",
+      "userFacing": true,
+      "allowTaskOverride": true,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "xiaomi/mimo-v2-pro",
+        "MiniMax-M2.7",
+        "kimi-k2.5"
+      ]
+    },
+    "memory-operator": {
+      "label": "记忆管家",
+      "role": "memory",
+      "defaultModel": "xiaomi/mimo-v2-pro",
+      "groupPolicy": "silent",
+      "userFacing": false,
+      "allowTaskOverride": true,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "MiniMax-M2.7",
+        "kimi-k2.5"
+      ]
+    },
+    "skill-builder": {
+      "label": "技能开发",
+      "role": "skills",
+      "defaultModel": "xiaomi/mimo-v2-pro",
+      "groupPolicy": "silent",
+      "userFacing": false,
+      "allowTaskOverride": true,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "MiniMax-M2.7",
+        "kimi-k2.5"
+      ]
+    },
+    "project-operator": {
+      "label": "项目执行",
+      "role": "execution",
+      "defaultModel": "xiaomi/mimo-v2-pro",
+      "groupPolicy": "silent",
+      "userFacing": false,
+      "allowTaskOverride": true,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "xiaomi/mimo-v2-pro",
+        "MiniMax-M2.7",
+        "kimi-k2.5"
+      ]
+    },
+    "review-agent": {
+      "label": "审查复核",
+      "role": "review",
+      "defaultModel": "xiaomi/mimo-v2-pro",
+      "groupPolicy": "silent",
+      "userFacing": false,
+      "allowTaskOverride": false,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "xiaomi/mimo-v2-pro",
+        "MiniMax-M2.7",
+        "kimi-k2.5"
+      ]
+    }
+  },
+  "modelPlans": [
+    {
+      "taskType": "coding",
+      "order": [
+        "main-assistant",
+        "memory-operator",
+        "skill-builder",
+        "project-operator",
+        "review-agent"
+      ]
+    },
+    {
+      "taskType": "planning",
+      "order": [
+        "main-assistant",
+        "memory-operator",
+        "skill-builder",
+        "project-operator",
+        "review-agent"
+      ]
+    },
+    {
+      "taskType": "research",
+      "order": [
+        "main-assistant",
+        "memory-operator",
+        "skill-builder",
+        "project-operator",
+        "review-agent"
+      ]
+    },
+    {
+      "taskType": "chat",
+      "order": [
+        "main-assistant",
+        "memory-operator",
+        "skill-builder",
+        "project-operator",
+        "review-agent"
+      ]
+    },
+    {
+      "taskType": "analysis",
+      "order": [
+        "main-assistant",
+        "memory-operator",
+        "skill-builder",
+        "project-operator",
+        "review-agent"
+      ]
+    }
+  ],
+  "healthMonitor": {
+    "enabled": true,
+    "checkIntervalMs": 120000,
+    "failThreshold": 3,
+    "recoverThreshold": 2,
+    "notifyOnFail": true,
+    "notifyOnRecover": true,
+    "autoRecover": true
+  },
+  "smartStrategy": {
+    "loadBalancing": {
+      "enabled": false,
+      "strategy": "none"
+    },
+    "tokenBudget": {
+      "enabled": false,
+      "monthlyTokens": null,
+      "overBudgetAction": "downgrade"
+    },
+    "timeBasedRouting": {
+      "enabled": false,
+      "peakHours": []
+    }
+  },
+  "defaultAgent": "main-assistant",
+  "temperature": null,
+  "maxTokens": null
+}
