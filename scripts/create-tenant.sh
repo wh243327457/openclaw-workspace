@@ -108,18 +108,10 @@ node -e "
 "
 echo "✅ 绑定已写入: $NEW_ACCOUNT → $TENANT_ID"
 
-# ──── 阶段 4：重启 gateway（让绑定生效） ────
+# ──── 阶段 4：触发 gateway 重载 ────
 echo ""
-echo "🔄 重启 gateway..."
-if openclaw gateway restart 2>&1 | grep -qi "service disabled\|failed"; then
-  # gateway 是容器 PID 1，尝试发 HUP 信号
-  kill -HUP 1 2>/dev/null || true
-  echo "⚠️  已发送重载信号，如果绑定未生效请手动重启容器"
-else
-  echo "✅ Gateway 已重启"
-fi
-
-sleep 2
+echo "🔄 触发 gateway 热重载..."
+sh "$WORKSPACE/scripts/gateway-reload.sh"
 
 # ──── 阶段 5：等二维码生成，发给主人 ────
 echo ""

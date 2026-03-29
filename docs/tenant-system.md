@@ -94,13 +94,18 @@ openclaw channels login --channel openclaw-weixin --account "friend-001"
 # 正确：登录后对比账号列表获取真实 ID
 ```
 
-### ❌ 坑 2：改配置后必须重启容器
+### ❌ 坑 2：改配置后需要触发 gateway 重载
 
 ```bash
-# 改了 openclaw.json 但不重启 → 不生效！
 # gateway 是 PID 1，配置在内存中
-# 必须从外部重启容器：
-docker restart <容器名>
+# 不能直接改文件就生效，需要用 config.patch API 触发热重载：
+sh scripts/gateway-reload.sh
+
+# 原理：
+# 1. config.get 获取当前配置 hash
+# 2. config.patch 发送空补丁 + hash
+# 3. gateway 发送 SIGUSR1 给自己，2秒后重启
+# 不需要 docker restart！
 ```
 
 ### ❌ 坑 3：删除 binding ≠ 拒绝对话

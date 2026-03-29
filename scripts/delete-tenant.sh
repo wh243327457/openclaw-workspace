@@ -103,5 +103,9 @@ echo "  - 白名单已清理"
 echo "  - Agent 已删除"
 echo "  - 文件已清理"
 echo ""
+
+# 触发 gateway 重载
+sh "$WORKSPACE/scripts/gateway-reload.sh"
+
 echo "该用户现在发消息会被拒绝（DM policy: allowlist）"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
