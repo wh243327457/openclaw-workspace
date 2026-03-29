@@ -7,12 +7,14 @@
 # 2. 初始化模板文件
 # 3. 启动微信扫码登录，生成绑定二维码
 # 4. 生成二维码图片
+# 5. 扫码完成后自动获取真实 accountId 并更新绑定
 
 set -e
 
 WORKSPACE="/home/node/.openclaw/workspace"
 REGISTRY="$WORKSPACE/tenants/registry.json"
 TEMPLATE="$WORKSPACE/templates/tenant-default"
+WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
 
 # 自动编号
 SEQ=$(node -e "
@@ -25,7 +27,6 @@ SEQ=$(node -e "
 TENANT_ID="friend-$SEQ"
 DISPLAY_NAME="${1:-朋友 #$SEQ}"
 AGENT_WORKSPACE="$HOME/.openclaw/workspace-$TENANT_ID"
-ACCOUNT_ID="$TENANT_ID"
 
 echo "📦 创建子系统 $TENANT_ID ($DISPLAY_NAME)..."
 
@@ -39,36 +40,11 @@ done
 cp -r "$TEMPLATE/memory" "$AGENT_WORKSPACE/memory" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/memory"
 cp -r "$TEMPLATE/scripts" "$AGENT_WORKSPACE/scripts" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/scripts"
 
-# 3. 写入注册表
-node -e "
-  const fs = require('fs');
-  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-  reg.tenants['$TENANT_ID'] = {
-    displayName: '$DISPLAY_NAME',
-    workspace: '$AGENT_WORKSPACE',
-    accountId: '$ACCOUNT_ID',
-    bound: false,
-    seq: $SEQ,
-    createdAt: new Date().toISOString()
-  };
-  fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
-"
-
-# 4. 添加 binding（按 accountId 路由）
-CONFIG="$HOME/.openclaw/openclaw.json"
-node -e "
-  const fs = require('fs');
-  const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf8'));
-  if (!config.bindings) config.bindings = [];
-  config.bindings.push({
-    agentId: '$TENANT_ID',
-    match: {
-      channel: 'openclaw-weixin',
-      accountId: '$ACCOUNT_ID'
-    }
-  });
-  fs.writeFileSync('$CONFIG', JSON.stringify(config, null, 2));
-"
+# 3. 记录登录前的账号列表（用于登录后检测新增）
+EXISTING_ACCOUNTS=""
+if [ -f "$WX_ACCOUNTS_FILE" ]; then
+  EXISTING_ACCOUNTS=$(cat "$WX_ACCOUNTS_FILE")
+fi
 
 echo "✅ Agent 创建完成"
 echo ""
@@ -76,10 +52,9 @@ echo "📱 正在生成微信绑定二维码..."
 echo "   请让朋友准备好微信扫码"
 echo ""
 
-# 5. 启动微信登录（生成二维码）
-# 在后台运行，捕获 QR URL
+# 4. 启动微信登录（生成二维码）
 LOGIN_LOG=$(mktemp)
-openclaw channels login --channel openclaw-weixin --account "$ACCOUNT_ID" > "$LOGIN_LOG" 2>&1 &
+openclaw channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
 LOGIN_PID=$!
 
 # 等待 QR URL 出现
@@ -90,7 +65,6 @@ for i in $(seq 1 30); do
     QR_URL=$(grep -o "https://liteapp.weixin.qq.com/[^ ]*" "$LOGIN_LOG" | head -1)
     break
   fi
-  # 也检查 terminal QR code 后的 URL
   if grep -q "qrcode=" "$LOGIN_LOG" 2>/dev/null; then
     QR_URL=$(grep -o "https://[^ ]*qrcode=[^ ]*" "$LOGIN_LOG" | head -1)
     break
@@ -102,11 +76,11 @@ if [ -z "$QR_URL" ]; then
   cat "$LOGIN_LOG"
   echo ""
   echo "登录命令仍在后台运行 (PID: $LOGIN_PID)"
-  echo "朋友扫码后运行: openclaw gateway restart"
+  echo "朋友扫码后运行: sh $WORKSPACE/scripts/finalize-tenant.sh $TENANT_ID"
   exit 0
 fi
 
-# 6. 从 URL 生成二维码图片
+# 5. 从 URL 生成二维码图片
 QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
 node -e "
   try {
@@ -123,9 +97,34 @@ node -e "
   }
 "
 
+# 6. 写入注册表（accountId 暂为空，等扫码后更新）
+node -e "
+  const fs = require('fs');
+  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
+  reg.tenants['$TENANT_ID'] = {
+    displayName: '$DISPLAY_NAME',
+    workspace: '$AGENT_WORKSPACE',
+    accountId: null,
+    bound: false,
+    seq: $SEQ,
+    createdAt: new Date().toISOString()
+  };
+  fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
+"
+
+# 7. 保存等待扫码完成的辅助信息
+cat > "$WORKSPACE/tenants/$TENANT_ID-pending.json" <<EOF
+{
+  "tenantId": "$TENANT_ID",
+  "existingAccounts": $EXISTING_ACCOUNTS,
+  "loginPid": $LOGIN_PID,
+  "loginLog": "$LOGIN_LOG"
+}
+EOF
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ 子系统 #$SEQ 已就绪"
+echo "✅ 子系统 #$SEQ 已就绪（等待扫码）"
 echo ""
 echo "  ID:       $TENANT_ID"
 echo "  名称:     $DISPLAY_NAME"
@@ -135,11 +134,7 @@ echo ""
 echo "📋 下一步："
 echo "  1. 把二维码图片发给朋友"
 echo "  2. 朋友用微信扫码绑定"
-echo "  3. 扫码成功后运行: openclaw gateway restart"
-echo "  4. 朋友发消息 → 自动进入 $TENANT_ID 系统"
+echo "  3. 扫码后告诉我，我自动完成剩余配置"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "⏳ 微信登录进程在后台等待 (PID: $LOGIN_PID)"
-echo "   朋友扫码后会自动完成，然后重启 gateway 即可"
 echo ""
 echo "$LOGIN_PID" > "$WORKSPACE/tenants/$TENANT_ID-login.pid"
