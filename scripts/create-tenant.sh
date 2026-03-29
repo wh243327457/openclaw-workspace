@@ -1,12 +1,9 @@
 #!/bin/sh
-# 创建子系统（使用 OpenClaw 原生 agents）
-# 用法: sh scripts/create-tenant.sh <tenantId> [displayName]
+# 创建子系统（自动生成 ID + 序号）
+# 用法: sh scripts/create-tenant.sh [displayName]
 #
-# 自动完成：
-# 1. 创建 OpenClaw agent（独立工作目录）
-# 2. 初始化模板文件
-# 3. 写入注册表
-# 4. 生成绑定码
+# 如果不提供 displayName，自动生成 "朋友 #N"
+# tenantId 自动生成为 friend-NNN 格式
 
 set -e
 
@@ -15,39 +12,34 @@ TENANTS_DIR="$WORKSPACE/tenants"
 REGISTRY="$TENANTS_DIR/registry.json"
 TEMPLATE="$WORKSPACE/templates/tenant-default"
 
-TENANT_ID="${1:?用法: sh create-tenant.sh <tenantId> [displayName]}"
-DISPLAY_NAME="${2:-$TENANT_ID}"
+# 读取当前计数，自动生成下一个序号
+SEQ=$(node -e "
+  const fs = require('fs');
+  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
+  const ids = Object.keys(reg.tenants).filter(k => k.match(/^friend-/));
+  const nums = ids.map(k => parseInt(k.replace('friend-', ''))).filter(n => !isNaN(n));
+  const max = nums.length > 0 ? Math.max(...nums) : 0;
+  console.log(String(max + 1).padStart(3, '0'));
+")
 
-# 校验 tenantId 格式
-echo "$TENANT_ID" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$' || {
-  echo "ERROR: tenantId 只能包含小写字母、数字和连字符，且不能以连字符开头或结尾"
-  exit 1
-}
+TENANT_ID="friend-$SEQ"
+DISPLAY_NAME="${1:-朋友 #$SEQ}"
 
 AGENT_WORKSPACE="$HOME/.openclaw/workspace-$TENANT_ID"
 
-# 检查是否已存在
-if [ -d "$AGENT_WORKSPACE" ]; then
-  echo "ERROR: 工作目录已存在: $AGENT_WORKSPACE"
-  exit 1
-fi
+echo "创建子系统: $TENANT_ID ($DISPLAY_NAME)"
 
-# 第1步：创建 OpenClaw agent
-echo "创建 OpenClaw agent: $TENANT_ID"
+# 创建 OpenClaw agent
 openclaw agents add "$TENANT_ID" --non-interactive --workspace "$AGENT_WORKSPACE"
 
-# 第2步：复制模板文件到 agent 工作目录
-echo "初始化模板文件..."
+# 初始化模板文件
 for f in SOUL.md USER.md IDENTITY.md MEMORY.md HEARTBEAT.md AGENTS.md TOOLS.md cron.json; do
-  if [ -f "$TEMPLATE/$f" ]; then
-    cp "$TEMPLATE/$f" "$AGENT_WORKSPACE/$f"
-  fi
+  [ -f "$TEMPLATE/$f" ] && cp "$TEMPLATE/$f" "$AGENT_WORKSPACE/$f"
 done
-# 复制子目录
 cp -r "$TEMPLATE/memory" "$AGENT_WORKSPACE/memory" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/memory"
 cp -r "$TEMPLATE/scripts" "$AGENT_WORKSPACE/scripts" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/scripts"
 
-# 第3步：生成绑定码
+# 生成绑定码
 BIND_CODE=$(cat /dev/urandom | tr -dc 'A-Z0-9' | head -c 6)
 
 # 写入注册表
@@ -61,17 +53,21 @@ node -e "
     bindCode: '$BIND_CODE',
     bound: false,
     boundPeerId: null,
+    seq: $SEQ,
     createdAt: new Date().toISOString()
   };
   fs.writeFileSync('$TMP', JSON.stringify(reg, null, 2));
 " && mv "$TMP" "$REGISTRY"
 
 echo ""
-echo "✅ 子系统创建成功"
+echo "✅ 子系统 #$SEQ 创建成功"
 echo "   ID:        $TENANT_ID"
 echo "   名称:      $DISPLAY_NAME"
-echo "   工作目录:  $AGENT_WORKSPACE"
 echo "   绑定码:    $BIND_CODE"
 echo ""
-echo "下一步：朋友发送绑定码后，运行 bind-tenant 完成关联"
-echo "或运行: sh scripts/generate-bind-qr.sh $TENANT_ID 生成绑定信息"
+echo "📱 发给朋友的绑定信息:"
+echo "━━━━━━━━━━━━━━━━━━━━━━"
+echo "   发送 bind:$BIND_CODE 完成绑定"
+echo ""
+echo "朋友绑定后，运行:"
+echo "   sh scripts/bind-tenant.sh $BIND_CODE <朋友的open_id>"

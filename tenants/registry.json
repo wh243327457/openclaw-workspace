@@ -1,1 +1,1 @@
-{"version":1,"tenants":{},"note":"tenantId → tenantInfo 的映射。用 create-tenant.sh 管理。"}
+{"version":1,"tenants":{}}
