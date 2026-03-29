@@ -1,9 +1,12 @@
 #!/bin/sh
-# 创建子系统
+# 创建子系统 + 自动生成二维码
 # 用法: sh scripts/create-tenant.sh [displayName]
 #
-# 自动编号: friend-001, friend-002, ...
-# 不传名称则默认 "朋友 #NNN"
+# 流程：
+# 1. 创建 OpenClaw agent
+# 2. 初始化模板文件
+# 3. 生成二维码（编码 "bind:friend-NNN"）
+# 4. 输出绑定指令
 
 set -e
 
@@ -48,9 +51,28 @@ node -e "
   fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
 "
 
+# 生成二维码
+QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
+node -e "
+  try {
+    const QRCode = require('/tmp/node_modules/qrcode');
+    QRCode.toFile('$QR_FILE', 'bind:$TENANT_ID', {
+      width: 300, margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
+    }, function(err) {
+      if (!err) console.log('   二维码: 已生成');
+    });
+  } catch(e) { console.log('   二维码: 生成失败（需 npm install qrcode in /tmp）'); }
+"
+
+echo ""
 echo "✅ 子系统 #$SEQ 创建成功"
 echo "   ID:    $TENANT_ID"
 echo "   名称:  $DISPLAY_NAME"
+echo "   二维码: $QR_FILE"
 echo ""
-echo "下一步：让朋友在微信里给我发条消息，拿到 open_id 后运行："
-echo "   sh scripts/bind-tenant.sh $TENANT_ID <朋友的open_id>"
+echo "📋 绑定流程："
+echo "   1. 运行: sh scripts/bind-tenant.sh $TENANT_ID <朋友的open_id>"
+echo "   2. 运行: openclaw gateway restart"
+echo "   3. 把二维码图片发给朋友"
+echo "   4. 朋友扫码发送 bind:$TENANT_ID → 消息直达 $TENANT_ID"

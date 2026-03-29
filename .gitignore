@@ -47,5 +47,6 @@ scripts/*.sh
 !templates/
 
 # 租户注册表（需要版本追踪）
-tenants/*/
+tenants/*
 !tenants/registry.json
+!tenants/*.png
