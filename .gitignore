@@ -1,17 +1,18 @@
 # OpenClaw workspace .gitignore
 
-# 个人/敏感文件
-MEMORY.md
-USER.md
-IDENTITY.md
-TOOLS.md
+# 个人/敏感文件（仅限根目录）
+/MEMORY.md
+/USER.md
+/IDENTITY.md
+/TOOLS.md
 .openclaw/
 
 # 内部目录
 memory/
 reviews/
 exports/
-skills/
+skills/*
+!skills/tenant-monitor/
 shared-memory/
 repo-templates/
 agent-team/checkpoints/
@@ -25,14 +26,27 @@ node_modules/
 .clobbered.*
 
 # 实例特有文件
-HEARTBEAT.md
-LOCAL-DEPLOYMENT.md
-WORKFLOW-CHECKLIST.md
-ai-dev-guide.md
-shared-memory-repo-template.md
-memory-system-architecture.md
+/HEARTBEAT.md
+/LOCAL-DEPLOYMENT.md
+/WORKFLOW-CHECKLIST.md
+/ai-dev-guide.md
+/shared-memory-repo-template.md
+/memory-system-architecture.md
 
 # 大部分脚本（只保留 init 和 clone）
 scripts/*.sh
 !scripts/init-workspace.sh
 !scripts/clone-workspace.sh
+!scripts/*-tenant.sh
+!scripts/bind-tenant.sh
+!scripts/resolve-tenant.sh
+!scripts/list-tenants.sh
+!scripts/generate-bind-qr.sh
+
+# 租户模板（需要版本追踪）
+!templates/
+
+# 租户注册表和路由（需要版本追踪）
+tenants/*/
+!tenants/registry.json
+!tenants/routing.json
