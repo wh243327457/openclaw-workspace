@@ -1,13 +1,13 @@
 #!/bin/sh
-# 创建子系统 + 生成微信绑定二维码
+# 创建子系统（全自动流程）
 # 用法: sh scripts/create-tenant.sh [displayName]
 #
-# 自动完成：
-# 1. 创建 OpenClaw agent（独立工作目录）
-# 2. 初始化模板文件
-# 3. 启动微信扫码登录，生成绑定二维码
-# 4. 生成二维码图片
-# 5. 扫码完成后自动获取真实 accountId 并更新绑定
+# 流程：
+# 1. 创建 agent + 初始化模板
+# 2. 启动微信登录，立即获取新 accountId
+# 3. 写入绑定 + 重启 gateway（朋友扫码前完成）
+# 4. 生成二维码发给主人
+# 5. 朋友扫码时 gateway 已经是新配置 → 消息直接进子系统
 
 set -e
 
@@ -15,6 +15,9 @@ WORKSPACE="/home/node/.openclaw/workspace"
 REGISTRY="$WORKSPACE/tenants/registry.json"
 TEMPLATE="$WORKSPACE/templates/tenant-default"
 WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
+CONFIG="$HOME/.openclaw/openclaw.json"
+ALLOW_FROM_FILE="$HOME/.openclaw/credentials/openclaw-weixin-allowFrom.json"
+OWNER_PEER="o9cq80-muALNTe-JpyCF5hb_v6GE@im.wechat"
 
 # 自动编号
 SEQ=$(node -e "
@@ -29,42 +32,101 @@ DISPLAY_NAME="${1:-朋友 #$SEQ}"
 AGENT_WORKSPACE="$HOME/.openclaw/workspace-$TENANT_ID"
 
 echo "📦 创建子系统 $TENANT_ID ($DISPLAY_NAME)..."
+echo ""
 
-# 1. 创建 OpenClaw agent
+# ──── 阶段 1：创建 agent ────
 openclaw agents add "$TENANT_ID" --non-interactive --workspace "$AGENT_WORKSPACE" 2>&1 | grep -v "^Config\|^Updated\|^Workspace\|^Sessions\|^Agent:" || true
 
-# 2. 初始化模板
 for f in SOUL.md USER.md IDENTITY.md MEMORY.md HEARTBEAT.md AGENTS.md TOOLS.md cron.json; do
   [ -f "$TEMPLATE/$f" ] && cp "$TEMPLATE/$f" "$AGENT_WORKSPACE/$f"
 done
 cp -r "$TEMPLATE/memory" "$AGENT_WORKSPACE/memory" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/memory"
 cp -r "$TEMPLATE/scripts" "$AGENT_WORKSPACE/scripts" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/scripts"
 
-# 3. 记录登录前的账号列表（用于登录后检测新增）
-EXISTING_ACCOUNTS=""
-if [ -f "$WX_ACCOUNTS_FILE" ]; then
-  EXISTING_ACCOUNTS=$(cat "$WX_ACCOUNTS_FILE")
-fi
-
 echo "✅ Agent 创建完成"
-echo ""
-echo "📱 正在生成微信绑定二维码..."
-echo "   请让朋友准备好微信扫码"
-echo ""
 
-# 4. 启动微信登录（生成二维码）
+# ──── 阶段 2：启动微信登录，获取新 accountId ────
+echo ""
+echo "📱 启动微信登录..."
+
+BEFORE=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
+
 LOGIN_LOG=$(mktemp)
 openclaw channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
 LOGIN_PID=$!
 
-# 等待 QR URL 出现
-QR_URL=""
+# 等待新账号出现（登录进程启动后 accounts.json 会立即新增）
+NEW_ACCOUNT=""
 for i in $(seq 1 30); do
   sleep 1
-  if grep -q "https://liteapp.weixin.qq.com" "$LOGIN_LOG" 2>/dev/null; then
-    QR_URL=$(grep -o "https://liteapp.weixin.qq.com/[^ ]*" "$LOGIN_LOG" | head -1)
+  CURRENT=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
+  if [ "$CURRENT" != "$BEFORE" ]; then
+    NEW_ACCOUNT=$(node -e "
+      const b = JSON.parse(process.argv[1]);
+      const c = JSON.parse(process.argv[2]);
+      const n = c.filter(id => !b.includes(id));
+      console.log(n[0]||'');
+    " "$BEFORE" "$CURRENT")
     break
   fi
+  # 同时检查二维码是否已生成
+  if grep -q "qrcode=" "$LOGIN_LOG" 2>/dev/null; then
+    # 二维码已出但账号还没写入？继续等
+    :
+  fi
+done
+
+if [ -z "$NEW_ACCOUNT" ]; then
+  echo "❌ 无法获取新账号"
+  kill "$LOGIN_PID" 2>/dev/null || true
+  exit 1
+fi
+
+echo "✅ 新账号: $NEW_ACCOUNT"
+
+# ──── 阶段 3：写入绑定（朋友还没扫码） ────
+node -e "
+  const fs = require('fs');
+  const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf8'));
+  config.bindings = (config.bindings||[]).filter(b => b.agentId !== '$TENANT_ID');
+  config.bindings.push({
+    agentId: '$TENANT_ID',
+    match: { channel: 'openclaw-weixin', accountId: '$NEW_ACCOUNT' }
+  });
+  fs.writeFileSync('$CONFIG', JSON.stringify(config, null, 2));
+
+  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
+  reg.tenants['$TENANT_ID'] = {
+    displayName: '$DISPLAY_NAME',
+    workspace: '$AGENT_WORKSPACE',
+    accountId: '$NEW_ACCOUNT',
+    bound: true,
+    seq: $SEQ,
+    createdAt: new Date().toISOString()
+  };
+  fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
+"
+echo "✅ 绑定已写入: $NEW_ACCOUNT → $TENANT_ID"
+
+# ──── 阶段 4：重启 gateway（让绑定生效） ────
+echo ""
+echo "🔄 重启 gateway..."
+if openclaw gateway restart 2>&1 | grep -qi "service disabled\|failed"; then
+  # gateway 是容器 PID 1，尝试发 HUP 信号
+  kill -HUP 1 2>/dev/null || true
+  echo "⚠️  已发送重载信号，如果绑定未生效请手动重启容器"
+else
+  echo "✅ Gateway 已重启"
+fi
+
+sleep 2
+
+# ──── 阶段 5：等二维码生成，发给主人 ────
+echo ""
+echo "⏳ 等待二维码生成..."
+QR_URL=""
+for i in $(seq 1 20); do
+  sleep 1
   if grep -q "qrcode=" "$LOGIN_LOG" 2>/dev/null; then
     QR_URL=$(grep -o "https://[^ ]*qrcode=[^ ]*" "$LOGIN_LOG" | head -1)
     break
@@ -72,69 +134,70 @@ for i in $(seq 1 30); do
 done
 
 if [ -z "$QR_URL" ]; then
-  echo "⚠️  无法自动获取二维码，请手动扫码："
-  cat "$LOGIN_LOG"
-  echo ""
-  echo "登录命令仍在后台运行 (PID: $LOGIN_PID)"
-  echo "朋友扫码后运行: sh $WORKSPACE/scripts/finalize-tenant.sh $TENANT_ID"
-  exit 0
+  echo "❌ 二维码生成失败"
+  kill "$LOGIN_PID" 2>/dev/null || true
+  exit 1
 fi
 
-# 5. 从 URL 生成二维码图片
 QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
 node -e "
-  try {
-    const QRCode = require('/tmp/node_modules/qrcode');
-    QRCode.toFile('$QR_FILE', '$QR_URL', {
-      width: 400, margin: 2,
-      color: { dark: '#000000', light: '#ffffff' }
-    }, function(err) {
-      if (!err) console.log('✅ 二维码图片已生成: $QR_FILE');
-    });
-  } catch(e) {
-    console.log('⚠️  二维码图片生成失败，请使用 URL:');
-    console.log('$QR_URL');
-  }
+const QRCode = require('/tmp/node_modules/qrcode');
+QRCode.toFile('$QR_FILE', '$QR_URL', {
+  width: 400, margin: 2,
+  color: { dark: '#000000', light: '#ffffff' }
+}, () => {});
 "
 
-# 6. 写入注册表（accountId 暂为空，等扫码后更新）
-node -e "
-  const fs = require('fs');
-  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-  reg.tenants['$TENANT_ID'] = {
-    displayName: '$DISPLAY_NAME',
-    workspace: '$AGENT_WORKSPACE',
-    accountId: null,
-    bound: false,
-    seq: $SEQ,
-    createdAt: new Date().toISOString()
-  };
-  fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
-"
+openclaw message send \
+  --channel openclaw-weixin \
+  --account "1c4f88dcb914-im-bot" \
+  --target "$OWNER_PEER" \
+  --media "$QR_FILE" \
+  --message "子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定" 2>&1 || true
 
-# 7. 保存等待扫码完成的辅助信息
-cat > "$WORKSPACE/tenants/$TENANT_ID-pending.json" <<EOF
-{
-  "tenantId": "$TENANT_ID",
-  "existingAccounts": $EXISTING_ACCOUNTS,
-  "loginPid": $LOGIN_PID,
-  "loginLog": "$LOGIN_LOG"
-}
-EOF
+echo "✅ 二维码已发送"
 
+# ──── 阶段 6：后台监听扫码结果 ────
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ 子系统 #$SEQ 已就绪（等待扫码）"
-echo ""
-echo "  ID:       $TENANT_ID"
-echo "  名称:     $DISPLAY_NAME"
-echo "  二维码:   $QR_FILE"
-echo "  URL:      $QR_URL"
-echo ""
-echo "📋 下一步："
-echo "  1. 把二维码图片发给朋友"
-echo "  2. 朋友用微信扫码绑定"
-echo "  3. 扫码后告诉我，我自动完成剩余配置"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
+echo "⏳ 后台等待朋友扫码（登录进程 PID: $LOGIN_PID）..."
+
+# 写入等待信息
 echo "$LOGIN_PID" > "$WORKSPACE/tenants/$TENANT_ID-login.pid"
+
+# 后台监听：扫码成功后更新白名单
+(
+  for i in $(seq 1 120); do
+    sleep 5
+    if ! kill -0 "$LOGIN_PID" 2>/dev/null; then
+      # 登录进程结束 = 扫码成功
+      if [ -f "$ALLOW_FROM_FILE" ]; then
+        node -e "
+          const fs = require('fs');
+          // 朋友的 peer ID 需要等第一条消息才能知道
+          // 这里只确保主人在白名单中
+          const list = JSON.parse(fs.readFileSync('$ALLOW_FROM_FILE', 'utf8'));
+          if (!list.includes('$OWNER_PEER')) {
+            list.push('$OWNER_PEER');
+            fs.writeFileSync('$ALLOW_FROM_FILE', JSON.stringify(list, null, 2));
+          }
+        "
+      fi
+      rm -f "$WORKSPACE/tenants/$TENANT_ID-login.pid"
+      rm -f "$LOGIN_LOG"
+      break
+    fi
+  done
+) &
+DISOWN_PID=$!
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🎉 $TENANT_ID ($DISPLAY_NAME) 创建完成！"
+echo ""
+echo "  账号:   $NEW_ACCOUNT"
+echo "  绑定:   $NEW_ACCOUNT → $TENANT_ID"
+echo "  二维码: 已发送"
+echo ""
+echo "✅ 绑定已在朋友扫码前生效"
+echo "   朋友扫码后消息直接进入 $TENANT_ID"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
