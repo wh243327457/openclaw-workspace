@@ -1,42 +1,28 @@
 #!/bin/sh
-# 绑定子系统到朋友的聊天
-# 用法: sh scripts/bind-tenant.sh <bindCode> <peerId>
+# 绑定朋友到子系统
+# 用法: sh scripts/bind-tenant.sh <tenantId> <peerId>
 #
-# bindCode: 创建时生成的6位绑定码
+# tenantId: 子系统 ID（如 friend-001）
 # peerId: 朋友的微信 open_id
 #
-# 自动完成：
-# 1. 验证绑定码
-# 2. 在 openclaw.json 中添加 peer 路由 binding
-# 3. 更新注册表
-# 4. 重启 gateway 生效
+# 自动在 openclaw.json 中添加 peer 路由
 
 set -e
 
 WORKSPACE="/home/node/.openclaw/workspace"
-TENANTS_DIR="$WORKSPACE/tenants"
-REGISTRY="$TENANTS_DIR/registry.json"
+REGISTRY="$WORKSPACE/tenants/registry.json"
 CONFIG="$HOME/.openclaw/openclaw.json"
 
-BIND_CODE="${1:?用法: sh bind-tenant.sh <bindCode> <peerId>}"
-PEER_ID="${2:?需要提供 peerId（朋友的微信 open_id）}"
+TENANT_ID="${1:?用法: sh bind-tenant.sh <tenantId> <peerId>}"
+PEER_ID="${2:?需要提供朋友的 open_id}"
 
-# 查找匹配绑定码的租户
-TENANT_ID=""
-for tid in $(node -e "
+# 检查租户是否存在
+EXISTS=$(node -e "
   const fs = require('fs');
   const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-  Object.keys(reg.tenants).forEach(id => {
-    if (reg.tenants[id].bindCode === '$BIND_CODE') console.log(id);
-  });
-"); do
-  TENANT_ID="$tid"
-done
-
-if [ -z "$TENANT_ID" ]; then
-  echo "ERROR: 绑定码无效: $BIND_CODE"
-  exit 1
-fi
+  console.log(reg.tenants['$TENANT_ID'] ? 'yes' : 'no');
+")
+[ "$EXISTS" = "yes" ] || { echo "ERROR: 子系统不存在: $TENANT_ID"; exit 1; }
 
 # 检查是否已绑定
 BOUND=$(node -e "
@@ -44,30 +30,9 @@ BOUND=$(node -e "
   const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
   console.log(reg.tenants['$TENANT_ID'].bound);
 ")
-if [ "$BOUND" = "true" ]; then
-  EXISTING=$(node -e "
-    const fs = require('fs');
-    const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-    console.log(reg.tenants['$TENANT_ID'].boundPeerId);
-  ")
-  echo "ERROR: 该子系统已绑定到: $EXISTING"
-  exit 1
-fi
+[ "$BOUND" != "true" ] || { echo "ERROR: $TENANT_ID 已绑定"; exit 1; }
 
-# 检查 peerId 是否已绑定其他租户
-EXISTING_PEER=$(node -e "
-  const fs = require('fs');
-  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-  Object.keys(reg.tenants).forEach(id => {
-    if (reg.tenants[id].boundPeerId === '$PEER_ID') console.log(id);
-  });
-")
-if [ -n "$EXISTING_PEER" ]; then
-  echo "ERROR: 该聊天已绑定子系统: $EXISTING_PEER"
-  exit 1
-fi
-
-# 在 openclaw.json 中添加 binding
+# 添加 binding 到 openclaw.json
 node -e "
   const fs = require('fs');
   const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf8'));
@@ -93,10 +58,7 @@ node -e "
   fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
 "
 
-echo "✅ 绑定成功"
-echo "   子系统:   $TENANT_ID"
-echo "   朋友ID:   $PEER_ID"
-echo "   时间:     $NOW"
+echo "✅ 绑定成功: $TENANT_ID ← $PEER_ID"
 echo ""
-echo "⚠️  需要重启 gateway 才能生效:"
+echo "重启 gateway 生效："
 echo "   openclaw gateway restart"
