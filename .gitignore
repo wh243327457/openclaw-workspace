@@ -46,7 +46,6 @@ scripts/*.sh
 # 租户模板（需要版本追踪）
 !templates/
 
-# 租户注册表和路由（需要版本追踪）
+# 租户注册表（需要版本追踪）
 tenants/*/
 !tenants/registry.json
-!tenants/routing.json

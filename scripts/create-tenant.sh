@@ -1,9 +1,12 @@
 #!/bin/sh
-# 创建子系统工作目录
+# 创建子系统（使用 OpenClaw 原生 agents）
 # 用法: sh scripts/create-tenant.sh <tenantId> [displayName]
 #
-# tenantId: 唯一标识（小写字母+数字+连字符，如 friend-alice）
-# displayName: 显示名称（可选，默认等于 tenantId）
+# 自动完成：
+# 1. 创建 OpenClaw agent（独立工作目录）
+# 2. 初始化模板文件
+# 3. 写入注册表
+# 4. 生成绑定码
 
 set -e
 
@@ -21,46 +24,43 @@ echo "$TENANT_ID" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$' || {
   exit 1
 }
 
-TENANT_DIR="$TENANTS_DIR/$TENANT_ID"
+AGENT_WORKSPACE="$HOME/.openclaw/workspace-$TENANT_ID"
 
 # 检查是否已存在
-if [ -d "$TENANT_DIR" ]; then
-  echo "ERROR: 子系统 '$TENANT_ID' 已存在于 $TENANT_DIR"
+if [ -d "$AGENT_WORKSPACE" ]; then
+  echo "ERROR: 工作目录已存在: $AGENT_WORKSPACE"
   exit 1
 fi
 
-# 复制模板
-echo "创建子系统目录: $TENANT_DIR"
-cp -r "$TEMPLATE" "$TENANT_DIR"
+# 第1步：创建 OpenClaw agent
+echo "创建 OpenClaw agent: $TENANT_ID"
+openclaw agents add "$TENANT_ID" --non-interactive --workspace "$AGENT_WORKSPACE"
 
-# 生成 bind code（6位随机码）
+# 第2步：复制模板文件到 agent 工作目录
+echo "初始化模板文件..."
+for f in SOUL.md USER.md IDENTITY.md MEMORY.md HEARTBEAT.md AGENTS.md TOOLS.md cron.json; do
+  if [ -f "$TEMPLATE/$f" ]; then
+    cp "$TEMPLATE/$f" "$AGENT_WORKSPACE/$f"
+  fi
+done
+# 复制子目录
+cp -r "$TEMPLATE/memory" "$AGENT_WORKSPACE/memory" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/memory"
+cp -r "$TEMPLATE/scripts" "$AGENT_WORKSPACE/scripts" 2>/dev/null || mkdir -p "$AGENT_WORKSPACE/scripts"
+
+# 第3步：生成绑定码
 BIND_CODE=$(cat /dev/urandom | tr -dc 'A-Z0-9' | head -c 6)
 
-# 写入租户元数据
-cat > "$TENANT_DIR/.tenant-meta.json" << EOF
-{
-  "tenantId": "$TENANT_ID",
-  "displayName": "$DISPLAY_NAME",
-  "bindCode": "$BIND_CODE",
-  "bound": false,
-  "boundChatId": null,
-  "boundAt": null,
-  "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "createdBy": "main-system"
-}
-EOF
-
-# 更新注册表
+# 写入注册表
 TMP=$(mktemp)
 node -e "
   const fs = require('fs');
   const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
   reg.tenants['$TENANT_ID'] = {
     displayName: '$DISPLAY_NAME',
-    dir: 'tenants/$TENANT_ID',
+    workspace: '$AGENT_WORKSPACE',
     bindCode: '$BIND_CODE',
     bound: false,
-    boundChatId: null,
+    boundPeerId: null,
     createdAt: new Date().toISOString()
   };
   fs.writeFileSync('$TMP', JSON.stringify(reg, null, 2));
@@ -68,9 +68,10 @@ node -e "
 
 echo ""
 echo "✅ 子系统创建成功"
-echo "   ID:      $TENANT_ID"
-echo "   名称:    $DISPLAY_NAME"
-echo "   目录:    $TENANT_DIR"
-echo "   绑定码:  $BIND_CODE"
+echo "   ID:        $TENANT_ID"
+echo "   名称:      $DISPLAY_NAME"
+echo "   工作目录:  $AGENT_WORKSPACE"
+echo "   绑定码:    $BIND_CODE"
 echo ""
-echo "下一步：运行 sh scripts/generate-bind-qr.sh $TENANT_ID 生成二维码"
+echo "下一步：朋友发送绑定码后，运行 bind-tenant 完成关联"
+echo "或运行: sh scripts/generate-bind-qr.sh $TENANT_ID 生成绑定信息"
