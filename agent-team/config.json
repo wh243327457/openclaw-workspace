@@ -51,6 +51,72 @@
         "reasoning",
         "creative"
       ]
+    },
+    {
+      "label": "GPT-5.2 (中转)",
+      "provider": "openai",
+      "modelName": "gpt-5.2",
+      "baseUrl": "https://aixj.vip/v1",
+      "apiKeyRef": "sk-3b03d25d039def694b828f3c058ccd0f60c41620ccab8bd0cd8853a05da887ca",
+      "maxTokens": 400000,
+      "costTier": "economy",
+      "tags": [
+        "chat",
+        "coding",
+        "reasoning"
+      ]
+    },
+    {
+      "label": "GPT-5.3 Codex (中转)",
+      "provider": "openai",
+      "modelName": "gpt-5.3-codex",
+      "baseUrl": "https://aixj.vip/v1",
+      "apiKeyRef": "sk-3b03d25d039def694b828f3c058ccd0f60c41620ccab8bd0cd8853a05da887ca",
+      "maxTokens": 400000,
+      "costTier": "premium",
+      "tags": [
+        "coding",
+        "reasoning"
+      ]
+    },
+    {
+      "label": "GPT-5.1 Codex (中转)",
+      "provider": "openai",
+      "modelName": "gpt-5.1-codex",
+      "baseUrl": "https://aixj.vip/v1",
+      "apiKeyRef": "sk-3b03d25d039def694b828f3c058ccd0f60c41620ccab8bd0cd8853a05da887ca",
+      "maxTokens": 400000,
+      "costTier": "economy",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "label": "Codex Mini (中转)",
+      "provider": "openai",
+      "modelName": "gpt-5.4-mini",
+      "baseUrl": "https://aixj.vip/v1",
+      "apiKeyRef": "sk-3b03d25d039def694b828f3c058ccd0f60c41620ccab8bd0cd8853a05da887ca",
+      "maxTokens": 200000,
+      "costTier": "economy",
+      "tags": [
+        "coding",
+        "daily"
+      ]
+    },
+    {
+      "label": "GPT-5.4 (中转)",
+      "provider": "openai",
+      "modelName": "gpt-5.4",
+      "baseUrl": "https://aixj.vip/v1",
+      "apiKeyRef": "sk-3b03d25d039def694b828f3c058ccd0f60c41620ccab8bd0cd8853a05da887ca",
+      "maxTokens": 400000,
+      "costTier": "premium",
+      "tags": [
+        "chat",
+        "coding",
+        "reasoning"
+      ]
     }
   ],
   "agents": {
