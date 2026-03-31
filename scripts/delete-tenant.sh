@@ -104,8 +104,14 @@ echo "  - Agent 已删除"
 echo "  - 文件已清理"
 echo ""
 
-# 触发 gateway 重载
-sh "$WORKSPACE/scripts/gateway-reload.sh"
+# 触发 gateway 重载（SIGUSR1）
+echo "🔄 触发 gateway 热重载..."
+if node -e "process.kill(1, 'SIGUSR1')" 2>/dev/null; then
+  sleep 3
+  echo "✅ Gateway 重载完成"
+else
+  echo "⚠️  SIGUSR1 发送失败，请手动重启容器"
+fi
 
 echo "该用户现在发消息会被拒绝（DM policy: allowlist）"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
