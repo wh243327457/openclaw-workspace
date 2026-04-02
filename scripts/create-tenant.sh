@@ -49,14 +49,7 @@ else
 fi
 
 if [ -z "$OWNER_PEER" ]; then
-  echo ""
-  echo "⚠️  未找到 ownerPeer 配置"
-  printf "请输入主人的 peer ID: "
-  read -r OWNER_PEER
-  if [ -z "$OWNER_PEER" ]; then
-    echo "❌ peer ID 不能为空"
-    exit 1
-  fi
+  echo "⚠️  未找到 ownerPeer 配置，继续以本地出码模式运行"
 fi
 
 SEQ=$(node -e "
