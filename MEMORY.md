@@ -29,13 +29,16 @@
 - 这套“共享记忆系统 v1”已经完成本地落地、双仓库上线、中文说明与新实例统一接入主流程。
 - 子系统（tenant）架构采用“独立 agent + 独立微信账号 + accountId 级绑定 + allowlist 拒绝兜底”的方案，并已完成主链路验证。
 - 主助手默认使用 `gpt-5.4`；执行型子 agent 默认从稳定模型池选择，不把 `gpt-5.4` 设为关键执行链路的默认模型。
-
+- 当前本地能力层采用“四件套”分层：`capability-manifest`、`system-summary`、`skill-registry`、`gap-backlog`。
+- 技能发现与路由采用“先查 `skills/` 和 `tools/`，再决定是否新造流程”的策略，并已写入总规则。
+- `SKILL.md` 开始采用统一轻量 frontmatter 元数据规范，核心字段包括：`triggers`、`tags`、`inputs`、`outputs`、`risks`。
 
 ## Assistant Working Model
 
 - 复杂任务默认采用“分析 → 方案 → 分派 → 监督 → 收集 → 决策整理”的 coordinator 流程，由 `main-assistant` 统一对外收口。
 - 影响长期行为、关键规则、高风险操作或低置信度结论时，优先走 `review` 闸门，不把模糊判断直接当成正式变更。
 - 能力建设与任务执行前，先查本地 `skills/`、共享 skills 和 `tools/`，优先复用已有能力，再决定是否新增流程或技能。
+
 ## Memory Policy
 
 - 默认采用最小化记忆策略：优先记录偏好、项目、决定和承诺，避免记录高敏感个人信息。
@@ -48,4 +51,6 @@
 - **删除 binding 不等于拒绝对话**，消息会 fallback 到主系统。需要 `dmPolicy: "allowlist"` + 白名单才能真正拒绝未授权用户。
 - **tenant 变更的固定链路**：扫码 → 获取真实 `accountId` → 写 binding / 白名单 → `gateway-reload` → 验证路由是否生效；不能只改磁盘配置就继续下一步。
 - **OpenClaw openai-compatible provider** 目前不直接透传 `reasoning_effort` / `verbosity` / `extraBody` 到 aixj.vip；若需要这类参数，先验证 provider 层是否支持。
+- **当前环境推 GitHub SSH 仓库时**，不要假设默认 SSH 会自动命中正确私钥；这台环境可用 key 在 `/home/node/.ssh/id_ed25519`，必要时显式通过 `GIT_SSH_COMMAND` 指定。
+- **Git 推送排障固定顺序**：先查 `safe.directory`，再查 `user.name/email`，再确认 remote 协议（HTTPS/SSH），再查 `known_hosts`，最后确认私钥路径和实际执行用户。
 - 详细操作手册见 `docs/tenant-system.md`。
