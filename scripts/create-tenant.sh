@@ -2,7 +2,7 @@
 # 创建子系统（阶段 1：创建 agent + 初始化模板）
 # 用法:
 #   sh scripts/create-tenant.sh [displayName]
-#   sh scripts/create-tenant.sh [displayName] --with-qr
+#   sh scripts/create-tenant.sh [displayName] --no-qr
 
 set -e
 
@@ -10,7 +10,7 @@ WORKSPACE="/home/node/.openclaw/workspace"
 REGISTRY="$WORKSPACE/tenants/registry.json"
 TEMPLATE="$WORKSPACE/templates/tenant-default"
 
-AUTO_QR="false"
+AUTO_QR="true"
 DISPLAY_NAME_ARG=""
 
 for arg in "$@"; do
@@ -18,11 +18,14 @@ for arg in "$@"; do
     --with-qr)
       AUTO_QR="true"
       ;;
+    --no-qr)
+      AUTO_QR="false"
+      ;;
     *)
       if [ -z "$DISPLAY_NAME_ARG" ]; then
         DISPLAY_NAME_ARG="$arg"
       else
-        echo "用法: sh scripts/create-tenant.sh [displayName] [--with-qr]"
+        echo "用法: sh scripts/create-tenant.sh [displayName] [--no-qr]"
         exit 1
       fi
       ;;
@@ -115,8 +118,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🎉 $TENANT_ID ($DISPLAY_NAME) 创建完成！"
 echo ""
 echo "  阶段 1: 已创建 agent + 初始化 workspace"
-echo "  阶段 2: 运行 sh scripts/generate-tenant-qr.sh $TENANT_ID"
-echo "  阶段 3: 朋友扫码后运行 sh scripts/finalize-tenant.sh $TENANT_ID"
+echo "  阶段 2: 自动生成二维码并返回给主人"
+echo "  阶段 3: 朋友扫码后后台自动完成绑定"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [ "$AUTO_QR" = "true" ]; then

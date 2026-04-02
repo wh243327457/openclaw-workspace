@@ -32,20 +32,22 @@ risks:
 
 每个子系统 = 一个独立的 OpenClaw agent + 一个独立的微信账号。
 
-创建子系统建议走三段式：
+创建子系统默认走一条龙：
 - 阶段 1：创建 agent（独立工作目录）
-- 阶段 2：单独生成微信登录二维码
-- 阶段 3：朋友扫码后再绑定 `accountId → agent`
+- 阶段 2：自动生成微信登录二维码并发给主人
+- 阶段 3：朋友扫码后后台自动绑定 `accountId → agent`
+
+三段式脚本仍然保留，用于排障和手动补救。
 
 朋友扫码 → 微信绑定 → 消息自动路由到该 agent。
 
 ## 管理命令
 
 ```bash
-sh scripts/create-tenant.sh [名称]             # 阶段 1：创建子系统
+sh scripts/create-tenant.sh [名称]             # 默认入口：创建子系统 + 出二维码 + 自动等待绑定
 sh scripts/generate-tenant-qr.sh <id>          # 阶段 2：生成微信二维码
 sh scripts/finalize-tenant.sh <id>             # 阶段 3：写路由 + 白名单监听
-sh scripts/create-tenant.sh [名称] --with-qr   # 兼容一条龙：阶段 1 + 2
+sh scripts/create-tenant.sh [名称] --no-qr     # 仅创建，不立即出码
 sh scripts/delete-tenant.sh <id>               # 删除子系统 + 清理微信账号
 sh scripts/list-tenants.sh                     # 查看状态
 sh scripts/bind-tenant.sh <id> <peer>          # 手动绑定（备用，仍直接改配置）

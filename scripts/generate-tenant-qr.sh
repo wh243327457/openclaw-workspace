@@ -10,6 +10,8 @@ WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
 TENANT_ID="${1:-}"
 PENDING_FILE="$WORKSPACE/tenants/${TENANT_ID}-pending.json"
 LOGIN_LOG="$WORKSPACE/tenants/${TENANT_ID}-login.log"
+WATCH_LOG="$WORKSPACE/tenants/${TENANT_ID}-watch.log"
+WATCH_PID_FILE="$WORKSPACE/tenants/${TENANT_ID}-watch.pid"
 OWNER_ACCOUNT="${OWNER_ACCOUNT:-1c4f88dcb914-im-bot}"
 
 if [ -z "$TENANT_ID" ]; then
@@ -24,6 +26,16 @@ if [ -f "$PENDING_FILE" ]; then
   echo "⚠️  已存在待完成的二维码流程: $PENDING_FILE"
   echo "请先完成 sh scripts/finalize-tenant.sh $TENANT_ID，或手动清理 pending 文件后重试。"
   exit 1
+fi
+
+if [ -f "$WATCH_PID_FILE" ]; then
+  OLD_WATCH_PID=$(cat "$WATCH_PID_FILE" 2>/dev/null || true)
+  if [ -n "$OLD_WATCH_PID" ] && kill -0 "$OLD_WATCH_PID" 2>/dev/null; then
+    echo "⚠️  已存在后台绑定监听进程: $OLD_WATCH_PID"
+    echo "请先完成当前扫码流程，或清理 $WATCH_PID_FILE 后重试。"
+    exit 1
+  fi
+  rm -f "$WATCH_PID_FILE"
 fi
 
 TENANT_INFO=$(node -e "
@@ -114,6 +126,28 @@ if [ -n "$OWNER_PEER" ]; then
   fi
 fi
 
+(
+  for i in $(seq 1 360); do
+    sleep 5
+    CURRENT=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
+    NEW_ACCOUNT=$(node -e "
+      const prev = JSON.parse(process.argv[1]);
+      const cur = JSON.parse(process.argv[2]);
+      const diff = cur.filter((id) => !prev.includes(id));
+      console.log(diff[0] || '');
+    " "$BEFORE" "$CURRENT" 2>/dev/null)
+
+    if [ -n "$NEW_ACCOUNT" ]; then
+      sh "$WORKSPACE/scripts/finalize-tenant.sh" "$TENANT_ID" >> "$WATCH_LOG" 2>&1 || true
+      break
+    fi
+  done
+
+  rm -f "$WATCH_PID_FILE"
+) >/dev/null 2>&1 &
+WATCH_PID=$!
+echo "$WATCH_PID" > "$WATCH_PID_FILE"
+
 echo "✅ 二维码已生成"
 if [ "$QR_GENERATED" = "true" ]; then
   echo "📎 二维码图片: $QR_FILE"
@@ -125,5 +159,6 @@ if [ -n "$OWNER_PEER" ]; then
 else
   echo "⚠️  未配置 ownerPeer，未自动发送给主人"
 fi
+echo "✅ 已启动后台绑定监听: $WATCH_PID"
 echo ""
-echo "下一步: 朋友扫码后运行 sh scripts/finalize-tenant.sh $TENANT_ID"
+echo "朋友扫码后将自动完成绑定，无需手工再运行 finalize。"

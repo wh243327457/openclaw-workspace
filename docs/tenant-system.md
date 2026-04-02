@@ -60,9 +60,11 @@
    └── 配置生效，朋友首条消息后自动加入白名单
 ```
 
-> 如果还想保留“一条命令到二维码”的习惯，可以用：
+> 默认推荐直接用：
 >
-> `sh scripts/create-tenant.sh "朋友名字" --with-qr`
+> `sh scripts/create-tenant.sh "朋友名字"`
+
+> 这会自动完成：创建 tenant → 生成二维码 → 发给主人 → 后台等待扫码并自动 finalize。
 
 ### 删除子系统
 
@@ -139,9 +141,9 @@ sh scripts/gateway-reload.sh
 
 | 脚本 | 用途 | 时机 |
 |------|------|------|
-| `scripts/create-tenant.sh [name]` | 创建 agent 与 workspace | 新增子系统（阶段 1） |
+| `scripts/create-tenant.sh [name]` | 默认入口：创建 agent + 出二维码 + 自动等待绑定 | 新增子系统 |
 | `scripts/generate-tenant-qr.sh <id>` | 生成二维码并保存 pending | 出码（阶段 2） |
-| `scripts/finalize-tenant.sh <id>` | 绑定真实 accountId + 白名单监听 | 朋友扫码后（阶段 3） |
+| `scripts/finalize-tenant.sh <id>` | 手动完成绑定与白名单监听 | 手工补救（阶段 3） |
 | `scripts/delete-tenant.sh <id>` | 清理一切 | 删除子系统 |
 
 ## 六、排查命令
