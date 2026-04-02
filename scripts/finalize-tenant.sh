@@ -1,19 +1,15 @@
 #!/bin/sh
-# 朋友扫码后，自动完成 tenant 绑定
-# 用法: sh scripts/finalize-tenant.sh [tenantId]
-#
-# 自动完成：
-# 1. 检测新增的微信账号 ID
-# 2. 更新 openclaw.json 路由绑定
-# 3. 更新注册表
-# 4. 重启 gateway
+# 朋友扫码后，完成 tenant 绑定（阶段 3：写路由 + 白名单监听）
+# 用法: sh scripts/finalize-tenant.sh <tenantId>
 
 set -e
 
 WORKSPACE="/home/node/.openclaw/workspace"
 REGISTRY="$WORKSPACE/tenants/registry.json"
 WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
-CONFIG="$HOME/.openclaw/openclaw.json"
+ALLOW_FROM_FILE="$HOME/.openclaw/credentials/openclaw-weixin-allowFrom.json"
+AGENTS_DIR="$HOME/.openclaw/agents"
+OWNER_ACCOUNT="${OWNER_ACCOUNT:-1c4f88dcb914-im-bot}"
 TENANT_ID="${1:-}"
 
 if [ -z "$TENANT_ID" ]; then
@@ -25,28 +21,28 @@ fi
 PENDING_FILE="$WORKSPACE/tenants/${TENANT_ID}-pending.json"
 if [ ! -f "$PENDING_FILE" ]; then
   echo "⚠️  找不到 $PENDING_FILE"
-  echo "该 tenant 可能已经完成绑定，或者文件被清理了。"
+  echo "请先运行 sh scripts/generate-tenant-qr.sh $TENANT_ID。"
   exit 1
 fi
 
-# 读取之前记录的账号列表
-PREV=$(node -e "console.log(JSON.stringify(JSON.parse(require('fs').readFileSync('$PENDING_FILE','utf8')).existingAccounts))")
+PREV=$(node -e "
+  const fs = require('fs');
+  const pending = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+  console.log(JSON.stringify(pending.existingAccounts || []));
+" "$PENDING_FILE")
+CURRENT=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
 
-# 读取当前账号列表
-CURRENT=$(node -e "console.log(JSON.stringify(JSON.parse(require('fs').readFileSync('$WX_ACCOUNTS_FILE','utf8'))))")
-
-# 找出新增的账号
 NEW_ACCOUNT=$(node -e "
-  const prev = $PREV;
-  const cur = $CURRENT;
-  const newOnes = cur.filter(id => !prev.includes(id));
+  const prev = JSON.parse(process.argv[1]);
+  const cur = JSON.parse(process.argv[2]);
+  const newOnes = cur.filter((id) => !prev.includes(id));
   if (newOnes.length === 0) {
     console.log('');
   } else {
     if (newOnes.length > 1) console.error('⚠️  多个新账号: ' + newOnes.join(', ') + '，使用第一个');
     console.log(newOnes[0]);
   }
-")
+" "$PREV" "$CURRENT")
 
 if [ -z "$NEW_ACCOUNT" ]; then
   echo "❌ 未检测到新增的微信账号。"
@@ -62,81 +58,120 @@ fi
 
 echo "✅ 检测到新账号: $NEW_ACCOUNT"
 
-# 更新绑定配置
+openclaw agents unbind --agent "$TENANT_ID" --all >/dev/null 2>&1 || true
+if ! openclaw agents bind --agent "$TENANT_ID" --bind "openclaw-weixin:$NEW_ACCOUNT" >/dev/null; then
+  echo "❌ 路由绑定失败"
+  echo "   恢复建议: openclaw agents bind --agent $TENANT_ID --bind openclaw-weixin:$NEW_ACCOUNT"
+  exit 1
+fi
+echo "✅ 路由绑定已更新: $NEW_ACCOUNT → $TENANT_ID"
+
 node -e "
   const fs = require('fs');
-  const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf8'));
-  if (!config.bindings) config.bindings = [];
-  
-  // 移除该 tenant 的旧绑定（如果存在）
-  config.bindings = config.bindings.filter(b => b.agentId !== '$TENANT_ID');
-  
-  // 添加新绑定
-  config.bindings.push({
-    agentId: '$TENANT_ID',
-    match: {
-      channel: 'openclaw-weixin',
-      accountId: '$NEW_ACCOUNT'
-    }
-  });
-  
-  fs.writeFileSync('$CONFIG', JSON.stringify(config, null, 2));
-  console.log('✅ 路由绑定已更新: $NEW_ACCOUNT → $TENANT_ID');
-"
-
-# 更新注册表
-node -e "
-  const fs = require('fs');
-  const reg = JSON.parse(fs.readFileSync('$REGISTRY', 'utf8'));
-  if (reg.tenants['$TENANT_ID']) {
-    reg.tenants['$TENANT_ID'].accountId = '$NEW_ACCOUNT';
-    reg.tenants['$TENANT_ID'].bound = true;
-    fs.writeFileSync('$REGISTRY', JSON.stringify(reg, null, 2));
-    console.log('✅ 注册表已更新');
+  const [registryPath, tenantId, accountId] = process.argv.slice(1);
+  const reg = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  if (reg.tenants?.[tenantId]) {
+    reg.tenants[tenantId].accountId = accountId;
+    reg.tenants[tenantId].bound = true;
+    reg.tenants[tenantId].boundAt = new Date().toISOString();
+    fs.writeFileSync(registryPath, JSON.stringify(reg, null, 2));
   }
-"
+" "$REGISTRY" "$TENANT_ID" "$NEW_ACCOUNT"
+echo "✅ 注册表已更新"
 
-# 获取朋友的 peer ID 并加入白名单
-PEER_ID=$(node -e "
+OWNER_PEER=$(node -e "
   const fs = require('fs');
-  const sessionsFile = '$HOME/.openclaw/agents/$TENANT_ID/sessions/sessions.json';
-  if (fs.existsSync(sessionsFile)) {
-    const sessions = JSON.parse(fs.readFileSync(sessionsFile, 'utf8'));
-    for (const [k, v] of Object.entries(sessions)) {
-      if (v.origin?.from) { console.log(v.origin.from); break; }
-    }
-  }
-")
-ALLOW_FROM_FILE="$HOME/.openclaw/credentials/openclaw-weixin-allowFrom.json"
-if [ -n "$PEER_ID" ] && [ -f "$ALLOW_FROM_FILE" ]; then
-  node -e "
-    const fs = require('fs');
-    const list = JSON.parse(fs.readFileSync('$ALLOW_FROM_FILE', 'utf8'));
-    if (!list.includes('$PEER_ID')) {
-      list.push('$PEER_ID');
-      fs.writeFileSync('$ALLOW_FROM_FILE', JSON.stringify(list, null, 2));
-      console.log('✅ 已加入白名单: $PEER_ID');
-    } else {
-      console.log('✅ 已在白名单中');
-    }
-  "
-elif [ -n "$PEER_ID" ]; then
-  echo "[$PEER_ID]" > "$ALLOW_FROM_FILE"
-  echo "✅ 白名单文件已创建"
+  const reg = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+  console.log(reg.ownerPeer || '');
+" "$REGISTRY" 2>/dev/null)
+LOGIN_PID=$(node -e "
+  const fs = require('fs');
+  const pending = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+  console.log(pending.loginPid || '');
+" "$PENDING_FILE" 2>/dev/null)
+
+if [ -n "$LOGIN_PID" ]; then
+  kill "$LOGIN_PID" 2>/dev/null || true
 fi
 
-# 清理临时文件
 rm -f "$PENDING_FILE"
-rm -f "$WORKSPACE/tenants/${TENANT_ID}-login.pid"
 
-# 重启 gateway
 echo ""
-echo "🔄 重启 gateway..."
-if openclaw gateway restart 2>&1 | grep -q "service disabled"; then
-  echo "⚠️  gateway 是容器 PID 1，无法通过 CLI 重启。"
-  echo "请手动重启容器，或者让朋友发一条消息测试（配置可能已自动加载）。"
+if ! sh "$WORKSPACE/scripts/gateway-reload.sh"; then
+  echo "⚠️  热重载未完全确认成功，请手动验证路由。"
 fi
 
+(
+  AGENT_SESSIONS="$AGENTS_DIR/$TENANT_ID/sessions"
+  FOUND="false"
+
+  for i in $(seq 1 720); do
+    sleep 5
+
+    FRIEND_PEER=$(node -e "
+      const fs = require('fs');
+      const dir = process.argv[1];
+      try {
+        if (!fs.existsSync(dir)) process.exit(0);
+        const files = fs.readdirSync(dir).filter((file) => file.endsWith('.json') && !file.startsWith('.'));
+        for (const file of files) {
+          try {
+            const session = JSON.parse(fs.readFileSync(dir + '/' + file, 'utf8'));
+            if (session.origin && session.origin.from) {
+              console.log(session.origin.from);
+              process.exit(0);
+            }
+          } catch (error) {}
+        }
+      } catch (error) {}
+    " "$AGENT_SESSIONS" 2>/dev/null)
+
+    if [ -n "$FRIEND_PEER" ]; then
+      if [ ! -f "$ALLOW_FROM_FILE" ]; then
+        mkdir -p "$(dirname "$ALLOW_FROM_FILE")"
+        echo '[]' > "$ALLOW_FROM_FILE"
+      fi
+
+      WAS_ADDED=$(node -e "
+        const fs = require('fs');
+        const [allowFile, peerId] = process.argv.slice(1);
+        let list = JSON.parse(fs.readFileSync(allowFile, 'utf8'));
+        if (!list.includes(peerId)) {
+          list.push(peerId);
+          fs.writeFileSync(allowFile, JSON.stringify(list, null, 2));
+          console.log('yes');
+        } else {
+          console.log('no');
+        }
+      " "$ALLOW_FROM_FILE" "$FRIEND_PEER" 2>/dev/null)
+
+      if [ "$WAS_ADDED" = "yes" ]; then
+        node -e "process.kill(1, 'SIGUSR1')" 2>/dev/null || true
+        sleep 2
+        if [ -n "$OWNER_PEER" ]; then
+          openclaw message send \
+            --channel openclaw-weixin \
+            --account "$OWNER_ACCOUNT" \
+            --target "$OWNER_PEER" \
+            --message "🎉 $TENANT_ID 绑定成功！朋友已加入白名单，可以开始聊天了。" 2>&1 || true
+        fi
+      fi
+
+      FOUND="true"
+      break
+    fi
+  done
+
+  if [ "$FOUND" != "true" ] && [ -n "$OWNER_PEER" ]; then
+    openclaw message send \
+      --channel openclaw-weixin \
+      --account "$OWNER_ACCOUNT" \
+      --target "$OWNER_PEER" \
+      --message "⏰ $TENANT_ID 绑定后 1 小时内未检测到首条消息；如需排查，运行: sh scripts/healthcheck-tenant.sh $TENANT_ID" 2>&1 || true
+  fi
+) >/dev/null 2>&1 &
+
+echo "✅ 已启动后台白名单监听"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎉 $TENANT_ID 绑定完成！"
@@ -145,4 +180,5 @@ echo "  账号:   $NEW_ACCOUNT"
 echo "  Agent:  $TENANT_ID"
 echo ""
 echo "朋友现在可以发消息了，会自动进入 $TENANT_ID 系统。"
+echo "首条消息后会自动加入白名单。"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

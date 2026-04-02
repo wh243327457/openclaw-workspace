@@ -37,25 +37,32 @@
 1. sh scripts/create-tenant.sh "朋友名字"
    ├── 创建 agent（openclaw agents add）
    ├── 初始化 workspace 模板
+   └── 写入 tenants/registry.json（此时还不碰绑定）
+
+2. sh scripts/generate-tenant-qr.sh friend-001
    ├── 记录当前已有微信账号列表
    ├── 调用 openclaw channels login 生成二维码
-   └── 输出二维码图片 + URL
+   ├── 保存 pending 状态
+   └── 输出/发送二维码图片 + URL
 
-2. 把二维码发给朋友
+3. 把二维码发给朋友
 
-3. 朋友用微信扫码
+4. 朋友用微信扫码
    ├── 微信绑定到机器人
    └── gateway 自动生成新 accountId（如 23a4b168c28e-im-bot）
 
-4. sh scripts/finalize-tenant.sh friend-001
+5. sh scripts/finalize-tenant.sh friend-001
    ├── 对比前后账号列表，找出新增的 accountId
-   ├── 写入 binding（accountId → agentId）
-   ├── 将朋友的 peer ID 加入白名单
+   ├── 使用 openclaw agents bind 写入 binding（accountId → agentId）
    └── 更新注册表
 
-5. 重启容器（docker restart）
-   └── gateway 重新读取配置，路由生效
+6. 触发 gateway 热重载
+   └── 配置生效，朋友首条消息后自动加入白名单
 ```
+
+> 如果还想保留“一条命令到二维码”的习惯，可以用：
+>
+> `sh scripts/create-tenant.sh "朋友名字" --with-qr`
 
 ### 删除子系统
 
@@ -132,8 +139,9 @@ sh scripts/gateway-reload.sh
 
 | 脚本 | 用途 | 时机 |
 |------|------|------|
-| `scripts/create-tenant.sh [name]` | 创建 agent + 生成二维码 | 新增子系统 |
-| `scripts/finalize-tenant.sh <id>` | 绑定真实 accountId + 白名单 | 朋友扫码后 |
+| `scripts/create-tenant.sh [name]` | 创建 agent 与 workspace | 新增子系统（阶段 1） |
+| `scripts/generate-tenant-qr.sh <id>` | 生成二维码并保存 pending | 出码（阶段 2） |
+| `scripts/finalize-tenant.sh <id>` | 绑定真实 accountId + 白名单监听 | 朋友扫码后（阶段 3） |
 | `scripts/delete-tenant.sh <id>` | 清理一切 | 删除子系统 |
 
 ## 六、排查命令

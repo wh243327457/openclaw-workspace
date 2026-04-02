@@ -18,7 +18,10 @@ node -e "
   if (!keys.length) { console.log('  暂无'); process.exit(0); }
   keys.forEach(id => {
     const t = reg.tenants[id];
+    const pending = fs.existsSync('$WORKSPACE/tenants/' + id + '-pending.json');
+    const status = t.bound ? '已绑定' : (pending ? '待扫码/待完成' : '仅已创建');
     console.log('  🟢 ' + t.displayName + ' (' + id + ')');
+    console.log('     状态: ' + status);
     console.log('     账号: ' + (t.accountId || '无'));
     console.log('     创建: ' + t.createdAt);
   });
