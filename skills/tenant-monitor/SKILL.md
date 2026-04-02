@@ -1,6 +1,29 @@
 ---
 name: tenant-monitor
 description: 管理和观测子系统。创建/删除朋友的独立 agent，通过微信插件生成绑定二维码，查看子系统的规则、记忆、定时任务。
+triggers:
+  - 创建子系统
+  - 删除子系统
+  - 查看租户状态
+  - 生成绑定二维码
+  - tenant monitor
+tags:
+  - tenant
+  - wechat
+  - monitoring
+  - ops
+inputs:
+  - tenant name
+  - peer id
+  - agent id
+outputs:
+  - tenant binding
+  - 微信登录二维码
+  - tenant status view
+risks:
+  - routing misconfiguration
+  - wrong account binding
+  - accidental tenant deletion
 ---
 
 # Tenant Monitor
