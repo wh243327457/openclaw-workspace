@@ -15,11 +15,13 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { checkModel } = require('./health-checker');
 
 const WORKSPACE = process.env.WORKSPACE || '/home/node/.openclaw/workspace';
 const CONFIG_FILE = path.join(WORKSPACE, 'agent-team', 'config.json');
 const STATE_FILE  = path.join(WORKSPACE, 'agent-team', 'health-state.json');
 const LOG_FILE    = path.join(WORKSPACE, 'agent-team', 'health-log.json');
+const OPENCLAW_CONFIG_FILE = path.join(process.env.HOME || '/home/node', '.openclaw', 'openclaw.json');
 
 // ─── 工具函数 ───
 
@@ -36,6 +38,14 @@ function now() { return Date.now(); }
 
 function ts() { return new Date().toISOString().replace('T',' ').slice(0,19); }
 
+function getRuntimeEnv() {
+  const openclawConfig = readJson(OPENCLAW_CONFIG_FILE, {});
+  return {
+    ...(openclawConfig.env || {}),
+    ...process.env,
+  };
+}
+
 // ─── 状态管理 ───
 
 let config = readJson(CONFIG_FILE, {});
@@ -50,70 +60,6 @@ function addLog(type, message, meta) {
 }
 
 // ─── 模型检测 ───
-
-/**
- * 检测单个模型是否可用
- * 通过 OpenRouter（OpenAI 兼容）的 chat/completions 发送极简请求
- * 优先使用模型自己的 apiKeyRef，回退到 OpenRouter
- */
-async function checkModel(model) {
-  // 优先用模型自己的 key，其次回退到 OpenRouter
-  const apiKey = process.env[model.apiKeyRef] || process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return { ok: false, error: 'No API key available', latency: 0 };
-
-  // OpenRouter 作为统一入口
-  const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-  const body = JSON.stringify({
-    model: model.modelName,
-    messages: [{ role: 'user', content: 'ping' }],
-    max_tokens: 5,
-    temperature: 0,
-  });
-
-  const start = now();
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body,
-      signal: AbortSignal.timeout(20000),
-    });
-    const latency = now() - start;
-
-    if (res.ok) {
-      return { ok: true, latency, status: res.status };
-    } else {
-      const text = await res.text().catch(() => '');
-      // 404/400 可能是模型名在 OpenRouter 上不存在，记为 warning 而非 error
-      const isModelNotFound = res.status === 404 || (res.status === 400 && text.includes('not found'));
-      return { ok: false, error: `HTTP ${res.status}: ${text.slice(0,200)}`, latency, status: res.status, isModelNotFound };
-    }
-  } catch (e) {
-    return { ok: false, error: e.message, latency: now() - start };
-  }
-}
-
-function getDefaultBaseUrl(provider) {
-  const map = {
-    openai:      'https://api.openai.com/v1',
-    anthropic:   'https://api.anthropic.com/v1',
-    deepseek:    'https://api.deepseek.com/v1',
-    moonshot:    'https://api.moonshot.cn/v1',
-    minimax:     'https://api.minimax.chat/v1',
-    zhipu:       'https://open.bigmodel.cn/api/paas/v4',
-    qwen:        'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    siliconflow: 'https://api.siliconflow.cn/v1',
-    groq:        'https://api.groq.com/openai/v1',
-    mistral:     'https://api.mistral.ai/v1',
-    google:      'https://generativelanguage.googleapis.com/v1beta/openai',
-    openrouter:  'https://openrouter.ai/api/v1',
-  };
-  return map[provider] || '';
-}
 
 // ─── 健康判断 ───
 
@@ -262,9 +208,10 @@ async function runHealthCheck() {
   writeJson(STATE_FILE, state);
 
   console.log(`[${ts()}] 开始健康检测，共 ${models.length} 个模型...`);
+  const runtimeEnv = getRuntimeEnv();
 
   for (const model of models) {
-    const result = await checkModel(model);
+    const result = await checkModel(model, runtimeEnv);
 
     if (!state.models[model.modelName]) {
       state.models[model.modelName] = { status: 'up', failCount: 0, recoverCount: 0, lastCheck: 0, checks: 0, fails: 0 };
@@ -279,6 +226,7 @@ async function runHealthCheck() {
       ms.failCount = 0;
       ms.recoverCount = (ms.recoverCount || 0) + 1;
       ms.lastUp = now();
+      ms.lastError = null;
 
       // 检查是否需要恢复
       if (ms.status === 'down' && ms.recoverCount >= recoverThreshold) {
@@ -357,13 +305,14 @@ function startApiServer() {
         try {
           const { modelName } = JSON.parse(body);
           config = readJson(CONFIG_FILE, {});
+          const runtimeEnv = getRuntimeEnv();
           const model = (config.models || []).find(m => m.modelName === modelName);
           if (!model) {
             res.writeHead(404, { ...cors, 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: '模型不存在' }));
             return;
           }
-          const result = await checkModel(model);
+          const result = await checkModel(model, runtimeEnv);
           // Update state
           if (!state.models[modelName]) state.models[modelName] = { status: 'up', failCount: 0, recoverCount: 0, checks: 0, fails: 0 };
           const ms = state.models[modelName];
