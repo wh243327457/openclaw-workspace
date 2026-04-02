@@ -6,9 +6,10 @@
 
 set -e
 
-WORKSPACE="/home/node/.openclaw/workspace"
-REGISTRY="$WORKSPACE/tenants/registry.json"
-TEMPLATE="$WORKSPACE/templates/tenant-default"
+WORKSPACE="${WORKSPACE:-/home/node/.openclaw/workspace}"
+REGISTRY="${REGISTRY:-$WORKSPACE/tenants/registry.json}"
+TEMPLATE="${TEMPLATE:-$WORKSPACE/templates/tenant-default}"
+OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
 
 AUTO_QR="true"
 DISPLAY_NAME_ARG=""
@@ -74,7 +75,7 @@ echo "📦 创建子系统 $TENANT_ID ($DISPLAY_NAME)..."
 echo ""
 echo "── 阶段 1/1：创建 agent ──"
 
-ADD_OUTPUT=$(openclaw agents add "$TENANT_ID" --non-interactive --workspace "$AGENT_WORKSPACE" 2>&1) || {
+ADD_OUTPUT=$($OPENCLAW_BIN agents add "$TENANT_ID" --non-interactive --workspace "$AGENT_WORKSPACE" 2>&1) || {
   echo "$ADD_OUTPUT" | grep -v "^Config\|^Updated\|^Workspace\|^Sessions\|^Agent:" || true
   echo "❌ Agent 创建失败"
   echo "   恢复建议: 检查 openclaw agents list，确认 $TENANT_ID 是否已存在"
@@ -118,5 +119,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 if [ "$AUTO_QR" = "true" ]; then
   echo ""
   echo "▶️  继续进入阶段 2：生成二维码"
-  sh "$WORKSPACE/scripts/generate-tenant-qr.sh" "$TENANT_ID"
+  if ! sh "$WORKSPACE/scripts/generate-tenant-qr.sh" "$TENANT_ID"; then
+    echo ""
+    echo "⚠️  自动出码失败，但 tenant 已创建成功。"
+    echo "   手动补救:"
+    echo "   1) 重新出码: sh scripts/generate-tenant-qr.sh $TENANT_ID"
+    echo "   2) 已知 accountId 时直接绑定: sh scripts/finalize-tenant.sh $TENANT_ID --account <accountId>"
+    exit 1
+  fi
 fi

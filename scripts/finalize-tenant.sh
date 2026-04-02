@@ -4,45 +4,91 @@
 
 set -e
 
-WORKSPACE="/home/node/.openclaw/workspace"
-REGISTRY="$WORKSPACE/tenants/registry.json"
-WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
-ALLOW_FROM_FILE="$HOME/.openclaw/credentials/openclaw-weixin-allowFrom.json"
-AGENTS_DIR="$HOME/.openclaw/agents"
+WORKSPACE="${WORKSPACE:-/home/node/.openclaw/workspace}"
+REGISTRY="${REGISTRY:-$WORKSPACE/tenants/registry.json}"
+WX_ACCOUNTS_FILE="${WX_ACCOUNTS_FILE:-$HOME/.openclaw/openclaw-weixin/accounts.json}"
+ALLOW_FROM_FILE="${ALLOW_FROM_FILE:-$HOME/.openclaw/credentials/openclaw-weixin-allowFrom.json}"
+AGENTS_DIR="${AGENTS_DIR:-$HOME/.openclaw/agents}"
+OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
+NOTIFY_OWNER="${NOTIFY_OWNER:-true}"
 OWNER_ACCOUNT="${OWNER_ACCOUNT:-1c4f88dcb914-im-bot}"
-TENANT_ID="${1:-}"
+TENANT_ID=""
+EXPLICIT_ACCOUNT=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --account)
+      if [ -z "$2" ]; then
+        echo "用法: sh scripts/finalize-tenant.sh <tenantId> [--account <accountId>]"
+        exit 1
+      fi
+      EXPLICIT_ACCOUNT="$2"
+      shift 2
+      ;;
+    *)
+      if [ -z "$TENANT_ID" ]; then
+        TENANT_ID="$1"
+        shift
+      else
+        echo "用法: sh scripts/finalize-tenant.sh <tenantId> [--account <accountId>]"
+        exit 1
+      fi
+      ;;
+  esac
+done
 
 if [ -z "$TENANT_ID" ]; then
-  echo "用法: sh scripts/finalize-tenant.sh <tenantId>"
-  echo "例: sh scripts/finalize-tenant.sh friend-001"
+  echo "用法: sh scripts/finalize-tenant.sh <tenantId> [--account <accountId>]"
+  echo "例: sh scripts/finalize-tenant.sh friend-001 --account 23a4b168c28e-im-bot"
   exit 1
 fi
 
 PENDING_FILE="$WORKSPACE/tenants/${TENANT_ID}-pending.json"
-if [ ! -f "$PENDING_FILE" ]; then
+WATCH_PID_FILE="$WORKSPACE/tenants/${TENANT_ID}-watch.pid"
+
+if [ ! -f "$PENDING_FILE" ] && [ -z "$EXPLICIT_ACCOUNT" ]; then
   echo "⚠️  找不到 $PENDING_FILE"
-  echo "请先运行 sh scripts/generate-tenant-qr.sh $TENANT_ID。"
+  echo "请先运行 sh scripts/generate-tenant-qr.sh $TENANT_ID，或直接指定 --account 手动完成绑定。"
   exit 1
 fi
 
-PREV=$(node -e "
-  const fs = require('fs');
-  const pending = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
-  console.log(JSON.stringify(pending.existingAccounts || []));
-" "$PENDING_FILE")
 CURRENT=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
 
-NEW_ACCOUNT=$(node -e "
-  const prev = JSON.parse(process.argv[1]);
-  const cur = JSON.parse(process.argv[2]);
-  const newOnes = cur.filter((id) => !prev.includes(id));
-  if (newOnes.length === 0) {
-    console.log('');
-  } else {
-    if (newOnes.length > 1) console.error('⚠️  多个新账号: ' + newOnes.join(', ') + '，使用第一个');
-    console.log(newOnes[0]);
-  }
-" "$PREV" "$CURRENT")
+if ! node -e "
+  const fs = require('fs');
+  const reg = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+  if (!reg.tenants?.[process.argv[2]]) process.exit(1);
+" "$REGISTRY" "$TENANT_ID" 2>/dev/null; then
+  echo "❌ Tenant 不存在: $TENANT_ID"
+  exit 1
+fi
+
+if [ -n "$EXPLICIT_ACCOUNT" ]; then
+  NEW_ACCOUNT="$EXPLICIT_ACCOUNT"
+else
+  PREV=$(node -e "
+    const fs = require('fs');
+    const pending = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+    console.log(JSON.stringify(pending.existingAccounts || []));
+  " "$PENDING_FILE")
+
+  DIFF_JSON=$(node -e "
+    const prev = JSON.parse(process.argv[1]);
+    const cur = JSON.parse(process.argv[2]);
+    const newOnes = cur.filter((id) => !prev.includes(id));
+    console.log(JSON.stringify(newOnes));
+  " "$PREV" "$CURRENT")
+
+  DIFF_COUNT=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$DIFF_JSON")
+  if [ "$DIFF_COUNT" -gt 1 ]; then
+    echo "❌ 检测到多个新增微信账号，拒绝自动选择。"
+    echo "候选账号: $(node -e "console.log(JSON.parse(process.argv[1]).join(', '))" "$DIFF_JSON")"
+    echo "请手动执行: sh scripts/finalize-tenant.sh $TENANT_ID --account <accountId>"
+    exit 1
+  fi
+
+  NEW_ACCOUNT=$(node -e "console.log(JSON.parse(process.argv[1])[0] || '')" "$DIFF_JSON")
+fi
 
 if [ -z "$NEW_ACCOUNT" ]; then
   echo "❌ 未检测到新增的微信账号。"
@@ -52,14 +98,27 @@ if [ -z "$NEW_ACCOUNT" ]; then
   echo "  - 朋友之前已经绑定过这个机器人"
   echo ""
   echo "当前账号列表: $CURRENT"
-  echo "之前的账号: $PREV"
+  if [ -n "$EXPLICIT_ACCOUNT" ]; then
+    echo "手动补救: 确认 accountId 是否正确，再重试 --account。"
+  else
+    echo "之前的账号: $PREV"
+  fi
+  exit 1
+fi
+
+if ! node -e "
+  const current = JSON.parse(process.argv[1]);
+  if (!current.includes(process.argv[2])) process.exit(1);
+" "$CURRENT" "$NEW_ACCOUNT" 2>/dev/null; then
+  echo "❌ accountId 不在当前微信账号列表中: $NEW_ACCOUNT"
+  echo "当前账号列表: $CURRENT"
   exit 1
 fi
 
 echo "✅ 检测到新账号: $NEW_ACCOUNT"
 
-openclaw agents unbind --agent "$TENANT_ID" --all >/dev/null 2>&1 || true
-if ! openclaw agents bind --agent "$TENANT_ID" --bind "openclaw-weixin:$NEW_ACCOUNT" >/dev/null; then
+$OPENCLAW_BIN agents unbind --agent "$TENANT_ID" --all >/dev/null 2>&1 || true
+if ! $OPENCLAW_BIN agents bind --agent "$TENANT_ID" --bind "openclaw-weixin:$NEW_ACCOUNT" >/dev/null; then
   echo "❌ 路由绑定失败"
   echo "   恢复建议: openclaw agents bind --agent $TENANT_ID --bind openclaw-weixin:$NEW_ACCOUNT"
   exit 1
@@ -86,7 +145,9 @@ OWNER_PEER=$(node -e "
 " "$REGISTRY" 2>/dev/null)
 LOGIN_PID=$(node -e "
   const fs = require('fs');
-  const pending = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+  const file = process.argv[1];
+  if (!fs.existsSync(file)) process.exit(0);
+  const pending = JSON.parse(fs.readFileSync(file, 'utf8'));
   console.log(pending.loginPid || '');
 " "$PENDING_FILE" 2>/dev/null)
 
@@ -94,7 +155,7 @@ if [ -n "$LOGIN_PID" ]; then
   kill "$LOGIN_PID" 2>/dev/null || true
 fi
 
-rm -f "$PENDING_FILE"
+rm -f "$PENDING_FILE" "$WATCH_PID_FILE"
 
 echo ""
 if ! sh "$WORKSPACE/scripts/gateway-reload.sh"; then
@@ -148,8 +209,8 @@ fi
       if [ "$WAS_ADDED" = "yes" ]; then
         node -e "process.kill(1, 'SIGUSR1')" 2>/dev/null || true
         sleep 2
-        if [ -n "$OWNER_PEER" ]; then
-          openclaw message send \
+        if [ -n "$OWNER_PEER" ] && [ "$NOTIFY_OWNER" = "true" ]; then
+          $OPENCLAW_BIN message send \
             --channel openclaw-weixin \
             --account "$OWNER_ACCOUNT" \
             --target "$OWNER_PEER" \
@@ -162,8 +223,8 @@ fi
     fi
   done
 
-  if [ "$FOUND" != "true" ] && [ -n "$OWNER_PEER" ]; then
-    openclaw message send \
+  if [ "$FOUND" != "true" ] && [ -n "$OWNER_PEER" ] && [ "$NOTIFY_OWNER" = "true" ]; then
+    $OPENCLAW_BIN message send \
       --channel openclaw-weixin \
       --account "$OWNER_ACCOUNT" \
       --target "$OWNER_PEER" \

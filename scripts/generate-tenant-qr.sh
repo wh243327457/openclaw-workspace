@@ -4,9 +4,12 @@
 
 set -e
 
-WORKSPACE="/home/node/.openclaw/workspace"
-REGISTRY="$WORKSPACE/tenants/registry.json"
-WX_ACCOUNTS_FILE="$HOME/.openclaw/openclaw-weixin/accounts.json"
+WORKSPACE="${WORKSPACE:-/home/node/.openclaw/workspace}"
+REGISTRY="${REGISTRY:-$WORKSPACE/tenants/registry.json}"
+WX_ACCOUNTS_FILE="${WX_ACCOUNTS_FILE:-$HOME/.openclaw/openclaw-weixin/accounts.json}"
+OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
+NOTIFY_OWNER="${NOTIFY_OWNER:-true}"
+QR_RENDERER="${QR_RENDERER:-$WORKSPACE/scripts/render-weixin-login-qr.js}"
 TENANT_ID="${1:-}"
 PENDING_FILE="$WORKSPACE/tenants/${TENANT_ID}-pending.json"
 LOGIN_LOG="$WORKSPACE/tenants/${TENANT_ID}-login.log"
@@ -24,7 +27,8 @@ mkdir -p "$WORKSPACE/tenants"
 
 if [ -f "$PENDING_FILE" ]; then
   echo "⚠️  已存在待完成的二维码流程: $PENDING_FILE"
-  echo "请先完成 sh scripts/finalize-tenant.sh $TENANT_ID，或手动清理 pending 文件后重试。"
+  echo "请先完成 sh scripts/finalize-tenant.sh $TENANT_ID --account <accountId>"
+  echo "若确认上次流程已失效，可先备份后重试: mv $PENDING_FILE ${PENDING_FILE%.json}-stale-\$(date +%s).json"
   exit 1
 fi
 
@@ -56,23 +60,82 @@ DISPLAY_NAME=$(node -e "console.log(JSON.parse(process.argv[1]).displayName || '
 OWNER_PEER=$(node -e "console.log(JSON.parse(process.argv[1]).ownerPeer || '')" "$TENANT_INFO")
 BEFORE=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
 
+update_pending() {
+  node -e "
+    const fs = require('fs');
+    const filePath = process.argv[1];
+    const patch = JSON.parse(process.argv[2]);
+    const current = fs.existsSync(filePath)
+      ? JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      : {};
+    fs.writeFileSync(filePath, JSON.stringify({ ...current, ...patch }, null, 2));
+  " "$PENDING_FILE" "$1"
+}
+
+send_owner_notice() {
+  MESSAGE_BODY="$1"
+  MEDIA_PATH="$2"
+
+  if [ -z "$OWNER_PEER" ] || [ "$NOTIFY_OWNER" != "true" ]; then
+    return 0
+  fi
+
+  if [ -n "$MEDIA_PATH" ] && [ -f "$MEDIA_PATH" ]; then
+    $OPENCLAW_BIN message send \
+      --channel openclaw-weixin \
+      --account "$OWNER_ACCOUNT" \
+      --target "$OWNER_PEER" \
+      --media "$MEDIA_PATH" \
+      --message "$MESSAGE_BODY" 2>&1 || true
+  else
+    $OPENCLAW_BIN message send \
+      --channel openclaw-weixin \
+      --account "$OWNER_ACCOUNT" \
+      --target "$OWNER_PEER" \
+      --message "$MESSAGE_BODY" 2>&1 || true
+  fi
+}
+
 echo "── 阶段 2/3：生成二维码 ──"
 echo "⏳ 启动微信登录..."
 
 : > "$LOGIN_LOG"
-openclaw channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
+$OPENCLAW_BIN channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
 LOGIN_PID=$!
 
 QR_URL=""
-for i in $(seq 1 20); do
+QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
+QR_PBM_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.pbm"
+QR_GENERATED="false"
+
+for i in $(seq 1 30); do
   sleep 1
-  if grep -q "qrcode=" "$LOGIN_LOG" 2>/dev/null; then
-    QR_URL=$(grep -o "https://[^ ]*qrcode=[^ ]*" "$LOGIN_LOG" | head -1)
+  if [ -z "$QR_URL" ] && grep -q "qrcode=" "$LOGIN_LOG" 2>/dev/null; then
+    QR_URL=$(node -e "
+      const fs = require('fs');
+      const text = fs.readFileSync(process.argv[1], 'utf8');
+      const matches = [...text.matchAll(/https:\/\/[^\s]*qrcode=[^\s]*/g)].map((entry) => entry[0]);
+      console.log(matches[matches.length - 1] || '');
+    " "$LOGIN_LOG" 2>/dev/null)
+  fi
+
+  if [ "$QR_GENERATED" != "true" ] && node "$QR_RENDERER" \
+    --input "$LOGIN_LOG" \
+    --pbm "$QR_PBM_FILE" \
+    --png "$QR_FILE" >/dev/null 2>&1; then
+    QR_GENERATED="true"
+  fi
+
+  if [ "$QR_GENERATED" = "true" ] || [ -n "$QR_URL" ]; then
+    break
+  fi
+
+  if ! kill -0 "$LOGIN_PID" 2>/dev/null; then
     break
   fi
 done
 
-if [ -z "$QR_URL" ]; then
+if [ "$QR_GENERATED" != "true" ] && [ -z "$QR_URL" ]; then
   echo "❌ 二维码生成失败"
   echo "   排查日志: cat $LOGIN_LOG"
   kill "$LOGIN_PID" 2>/dev/null || true
@@ -81,72 +144,80 @@ fi
 
 node -e "
   const fs = require('fs');
-  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrUrl] = process.argv.slice(1);
+  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrFile, qrUrl] = process.argv.slice(1);
   fs.writeFileSync(filePath, JSON.stringify({
     tenantId,
     displayName,
     existingAccounts: JSON.parse(existingAccounts),
     loginPid: Number(loginPid),
     loginLog,
+    qrFile,
     qrUrl,
+    status: 'awaiting_scan',
     createdAt: new Date().toISOString()
   }, null, 2));
-" "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_URL"
+" "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_FILE" "$QR_URL"
 
-QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
-QR_GENERATED="false"
-
-if node -e "require('/tmp/node_modules/qrcode')" 2>/dev/null; then
-  node -e "
-    const QRCode = require('/tmp/node_modules/qrcode');
-    QRCode.toFile(process.argv[1], process.argv[2], {
-      width: 400,
-      margin: 2,
-      color: { dark: '#000000', light: '#ffffff' }
-    }, (error) => {
-      if (error) process.exit(1);
-    });
-  " "$QR_FILE" "$QR_URL" 2>/dev/null && QR_GENERATED="true"
-fi
-
-if [ -n "$OWNER_PEER" ]; then
-  if [ "$QR_GENERATED" = "true" ]; then
-    openclaw message send \
-      --channel openclaw-weixin \
-      --account "$OWNER_ACCOUNT" \
-      --target "$OWNER_PEER" \
-      --media "$QR_FILE" \
-      --message "子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定" 2>&1 || true
-  else
-    openclaw message send \
-      --channel openclaw-weixin \
-      --account "$OWNER_ACCOUNT" \
-      --target "$OWNER_PEER" \
-      --message "子系统 $DISPLAY_NAME 绑定链接：$QR_URL" 2>&1 || true
-  fi
+if [ "$QR_GENERATED" = "true" ]; then
+  send_owner_notice "子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定" "$QR_FILE"
+elif [ -n "$QR_URL" ]; then
+  send_owner_notice "子系统 $DISPLAY_NAME 绑定链接：$QR_URL" ""
 fi
 
 (
+  trap 'rm -f "$WATCH_PID_FILE"' EXIT
+  LOGIN_DEAD_STREAK=0
+
   for i in $(seq 1 360); do
     sleep 5
+    [ -f "$PENDING_FILE" ] || exit 0
+
     CURRENT=$(cat "$WX_ACCOUNTS_FILE" 2>/dev/null || echo "[]")
-    NEW_ACCOUNT=$(node -e "
+    DIFF_JSON=$(node -e "
       const prev = JSON.parse(process.argv[1]);
       const cur = JSON.parse(process.argv[2]);
       const diff = cur.filter((id) => !prev.includes(id));
-      console.log(diff[0] || '');
+      console.log(JSON.stringify(diff));
     " "$BEFORE" "$CURRENT" 2>/dev/null)
 
-    if [ -n "$NEW_ACCOUNT" ]; then
-      sh "$WORKSPACE/scripts/finalize-tenant.sh" "$TENANT_ID" >> "$WATCH_LOG" 2>&1 || true
-      break
+    DIFF_COUNT=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$DIFF_JSON" 2>/dev/null || echo "0")
+
+    if [ "$DIFF_COUNT" -eq 1 ]; then
+      NEW_ACCOUNT=$(node -e "console.log(JSON.parse(process.argv[1])[0] || '')" "$DIFF_JSON" 2>/dev/null)
+      sh "$WORKSPACE/scripts/finalize-tenant.sh" "$TENANT_ID" --account "$NEW_ACCOUNT" >> "$WATCH_LOG" 2>&1 || true
+      exit 0
+    fi
+
+    if [ "$DIFF_COUNT" -gt 1 ]; then
+      CANDIDATES=$(node -e "console.log(JSON.parse(process.argv[1]).join(', '))" "$DIFF_JSON" 2>/dev/null)
+      update_pending "{\"status\":\"ambiguous-account\",\"candidateAccounts\":$(printf '%s' "$DIFF_JSON")}" >/dev/null 2>&1 || true
+      send_owner_notice "⚠️ $TENANT_ID 检测到多个新账号：$CANDIDATES。请手动执行：sh scripts/finalize-tenant.sh $TENANT_ID --account <accountId>" ""
+      exit 0
+    fi
+
+    if kill -0 "$LOGIN_PID" 2>/dev/null; then
+      LOGIN_DEAD_STREAK=0
+      continue
+    fi
+
+    LOGIN_DEAD_STREAK=$((LOGIN_DEAD_STREAK + 1))
+    if [ "$LOGIN_DEAD_STREAK" -ge 3 ]; then
+      update_pending "{\"status\":\"qr-expired\"}" >/dev/null 2>&1 || true
+      ARCHIVED_PENDING="$WORKSPACE/tenants/${TENANT_ID}-pending-expired-$(date +%s).json"
+      mv "$PENDING_FILE" "$ARCHIVED_PENDING" 2>/dev/null || true
+      send_owner_notice "⏰ $TENANT_ID 的二维码已失效，重新出码：sh scripts/generate-tenant-qr.sh $TENANT_ID" ""
+      exit 0
     fi
   done
 
-  rm -f "$WATCH_PID_FILE"
+  update_pending "{\"status\":\"watch-timeout\"}" >/dev/null 2>&1 || true
+  ARCHIVED_PENDING="$WORKSPACE/tenants/${TENANT_ID}-pending-timeout-$(date +%s).json"
+  mv "$PENDING_FILE" "$ARCHIVED_PENDING" 2>/dev/null || true
+  send_owner_notice "⏰ $TENANT_ID 等待扫码超时，重新出码：sh scripts/generate-tenant-qr.sh $TENANT_ID" ""
 ) >/dev/null 2>&1 &
 WATCH_PID=$!
 echo "$WATCH_PID" > "$WATCH_PID_FILE"
+update_pending "{\"watchPid\":$WATCH_PID,\"watchLog\":\"$WATCH_LOG\"}" >/dev/null 2>&1
 
 echo "✅ 二维码已生成"
 if [ "$QR_GENERATED" = "true" ]; then
@@ -162,3 +233,6 @@ fi
 echo "✅ 已启动后台绑定监听: $WATCH_PID"
 echo ""
 echo "朋友扫码后将自动完成绑定，无需手工再运行 finalize。"
+echo "手动补救："
+echo "  - 已知 accountId：sh scripts/finalize-tenant.sh $TENANT_ID --account <accountId>"
+echo "  - 二维码失效重来：sh scripts/generate-tenant-qr.sh $TENANT_ID"

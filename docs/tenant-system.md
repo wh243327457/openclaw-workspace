@@ -42,6 +42,7 @@
 2. sh scripts/generate-tenant-qr.sh friend-001
    ├── 记录当前已有微信账号列表
    ├── 调用 openclaw channels login 生成二维码
+   ├── 本地解析终端二维码字符画并渲染成 PNG
    ├── 保存 pending 状态
    └── 输出/发送二维码图片 + URL
 
@@ -56,6 +57,9 @@
    ├── 使用 openclaw agents bind 写入 binding（accountId → agentId）
    └── 更新注册表
 
+   # 已知 accountId 时，也可以手动指定，避开多账号歧义：
+   sh scripts/finalize-tenant.sh friend-001 --account 23a4b168c28e-im-bot
+
 6. 触发 gateway 热重载
    └── 配置生效，朋友首条消息后自动加入白名单
 ```
@@ -65,6 +69,7 @@
 > `sh scripts/create-tenant.sh "朋友名字"`
 
 > 这会自动完成：创建 tenant → 生成二维码 → 发给主人 → 后台等待扫码并自动 finalize。
+> 若二维码过期或后台监听超时，直接重跑：`sh scripts/generate-tenant-qr.sh <tenantId>`。
 
 ### 删除子系统
 
@@ -117,6 +122,13 @@ sh scripts/gateway-reload.sh
 # 不需要 docker restart！
 ```
 
+### ❌ 坑 2.5：不要把二维码图片生成绑死在临时依赖上
+
+旧方案依赖 `/tmp/node_modules/qrcode`，一旦临时依赖消失，就只能退回到链接。
+
+现在的方案直接读取 `openclaw channels login` 打出来的终端二维码字符画，
+本地转成 PBM/PNG，再发送给主人；这样即使没有额外 npm 包，也能稳定出图。
+
 ### ❌ 坑 3：删除 binding ≠ 拒绝对话
 
 ```bash
@@ -144,6 +156,7 @@ sh scripts/gateway-reload.sh
 | `scripts/create-tenant.sh [name]` | 默认入口：创建 agent + 出二维码 + 自动等待绑定 | 新增子系统 |
 | `scripts/generate-tenant-qr.sh <id>` | 生成二维码并保存 pending | 出码（阶段 2） |
 | `scripts/finalize-tenant.sh <id>` | 手动完成绑定与白名单监听 | 手工补救（阶段 3） |
+| `scripts/finalize-tenant.sh <id> --account <accountId>` | 已知账号时直接绑定，适合多账号歧义或自动流程失败 | 精确补救 |
 | `scripts/delete-tenant.sh <id>` | 清理一切 | 删除子系统 |
 
 ## 六、排查命令
