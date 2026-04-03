@@ -43,7 +43,8 @@
    ├── 记录当前已有微信账号列表
    ├── 调用 openclaw channels login 生成二维码
    ├── 本地解析终端二维码字符画并渲染成 PNG
-   ├── 保存 pending 状态
+   ├── 若首轮只拿到链接/遇到 AbortError，会自动重试一次
+   ├── 保存 pending 状态（含 qrAttempts / renderLog / noticeStatus）
    └── 输出/发送二维码图片 + URL
 
 3. 把二维码发给朋友
@@ -55,7 +56,8 @@
 5. sh scripts/finalize-tenant.sh friend-001
    ├── 对比前后账号列表，找出新增的 accountId
    ├── 使用 openclaw agents bind 写入 binding（accountId → agentId）
-   └── 更新注册表
+   ├── 更新注册表状态（binding / bound / active）
+   └── 首条消息到达后自动写入 allowlist
 
    # 已知 accountId 时，也可以手动指定，避开多账号歧义：
    sh scripts/finalize-tenant.sh friend-001 --account 23a4b168c28e-im-bot
@@ -85,7 +87,19 @@ sh scripts/delete-tenant.sh friend-001
 重启容器后生效
 ```
 
-## 三、关键配置文件
+### registry 状态字段（新增约定）
+
+每个 tenant 在 `tenants/registry.json` 中现在建议至少维护这些状态字段：
+
+- `status`: `draft` / `qr_issuing` / `awaiting_scan` / `account_detected` / `binding` / `bound` / `active` / `ambiguous-account` / `qr-expired` / `watch-timeout` / `deleting`
+- `bound`: 是否已完成 account 绑定
+- `allowlisted`: 是否已进入 DM allowlist
+- `accountId`: 已绑定微信账号（若已知）
+- `peerId`: 首条消息识别到的对方 peerId（若已知）
+- `qrAttempts`: 最近一次出码尝试次数
+
+`registry.json` 应视作 tenant 控制面的主视图；`bindings`、`accounts.json`、`allowFrom.json` 为派生状态，需要定期巡检一致性。
+
 
 | 文件 | 作用 |
 |------|------|
@@ -158,6 +172,8 @@ sh scripts/gateway-reload.sh
 | `scripts/finalize-tenant.sh <id>` | 手动完成绑定与白名单监听 | 手工补救（阶段 3） |
 | `scripts/finalize-tenant.sh <id> --account <accountId>` | 已知账号时直接绑定，适合多账号歧义或自动流程失败 | 精确补救 |
 | `scripts/delete-tenant.sh <id>` | 清理一切 | 删除子系统 |
+| `scripts/healthcheck-tenant.sh [id]` | 巡检 tenant 的 registry / binding / accounts / allowlist 一致性 | 排查 / 验证 |
+| `scripts/check-tenants.sh [id]` | `healthcheck-tenant.sh` 的简短入口 | 日常巡检 |
 
 ## 六、排查命令
 
@@ -173,6 +189,12 @@ cat ~/.openclaw/credentials/openclaw-weixin-allowFrom.json
 
 # 查看子系统注册表
 cat tenants/registry.json
+
+# 巡检某个 tenant 的状态一致性
+sh scripts/check-tenants.sh friend-001
+
+# 巡检所有 tenant
+sh scripts/check-tenants.sh
 
 # 查看 agent 会话
 ls ~/.openclaw/agents/<agentId>/sessions/
@@ -214,3 +236,9 @@ openclaw message send \
 
 > 注意：agent 本身没有发图片的工具，必须通过 `openclaw message send` CLI 命令。
 > 账号用主账号（`1c4f88dcb914-im-bot`），target 用对方的 peer ID。
+>
+> 当前二维码链路已增强为：
+> - 优先发 PNG
+> - 失败时降级到链接
+> - 遇到 login AbortError / 只拿到链接时自动补一次重试
+> - 详细排障看 `tenants/*-login.log` 与 `tenants/*-render.log`

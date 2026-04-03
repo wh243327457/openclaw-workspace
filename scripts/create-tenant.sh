@@ -99,6 +99,8 @@ node -e "
     displayName,
     workspace: workspacePath,
     bound: false,
+    status: 'draft',
+    allowlisted: false,
     seq: Number(seq),
     createdAt: new Date().toISOString()
   };
