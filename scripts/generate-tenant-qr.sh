@@ -112,6 +112,12 @@ try_render_qr_image() {
   return 1
 }
 
+QR_URL=""
+QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
+QR_PBM_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.pbm"
+QR_RENDER_LOG="$WORKSPACE/tenants/$TENANT_ID-render.log"
+QR_GENERATED="false"
+
 echo "── 阶段 2/3：生成二维码 ──"
 echo "⏳ 启动微信登录..."
 
@@ -119,12 +125,6 @@ echo "⏳ 启动微信登录..."
 : > "$QR_RENDER_LOG"
 $OPENCLAW_BIN channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
 LOGIN_PID=$!
-
-QR_URL=""
-QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
-QR_PBM_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.pbm"
-QR_RENDER_LOG="$WORKSPACE/tenants/$TENANT_ID-render.log"
-QR_GENERATED="false"
 
 for i in $(seq 1 30); do
   sleep 1
