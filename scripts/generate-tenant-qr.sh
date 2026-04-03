@@ -20,6 +20,8 @@ MAX_LOGIN_ATTEMPTS="${MAX_LOGIN_ATTEMPTS:-2}"
 QR_POLL_SECONDS="${QR_POLL_SECONDS:-30}"
 QR_EXTRA_RENDER_SECONDS="${QR_EXTRA_RENDER_SECONDS:-5}"
 WATCH_ITERATIONS="${WATCH_ITERATIONS:-360}"
+SCRIPT_BIN="${SCRIPT_BIN:-$(command -v script 2>/dev/null || true)}"
+STDBUF_BIN="${STDBUF_BIN:-$(command -v stdbuf 2>/dev/null || true)}"
 
 if [ -z "$TENANT_ID" ]; then
   echo "用法: sh scripts/generate-tenant-qr.sh <tenantId>"
@@ -130,6 +132,29 @@ try_render_qr_image() {
   return 1
 }
 
+start_login_capture() {
+  : > "$LOGIN_LOG"
+  : > "$QR_RENDER_LOG"
+
+  if [ -n "$SCRIPT_BIN" ]; then
+    "$SCRIPT_BIN" -qefc "$OPENCLAW_BIN channels login --channel openclaw-weixin" "$LOGIN_LOG" >/dev/null 2>&1 &
+    LOGIN_PID=$!
+    LOGIN_CAPTURE_MODE="pty-script"
+    return 0
+  fi
+
+  if [ -n "$STDBUF_BIN" ]; then
+    "$STDBUF_BIN" -oL -eL "$OPENCLAW_BIN" channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
+    LOGIN_PID=$!
+    LOGIN_CAPTURE_MODE="stdbuf"
+    return 0
+  fi
+
+  $OPENCLAW_BIN channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
+  LOGIN_PID=$!
+  LOGIN_CAPTURE_MODE="plain-redirection"
+}
+
 prepare_stale_state() {
   if [ -f "$PENDING_FILE" ]; then
     STALE_LOGIN_PID=$(node -e '
@@ -169,11 +194,9 @@ run_login_attempt() {
   ATTEMPT="$1"
   QR_URL=""
   QR_GENERATED="false"
+  LOGIN_CAPTURE_MODE="unknown"
 
-  : > "$LOGIN_LOG"
-  : > "$QR_RENDER_LOG"
-  $OPENCLAW_BIN channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
-  LOGIN_PID=$!
+  start_login_capture
 
   for _ in $(seq 1 "$QR_POLL_SECONDS"); do
     sleep 1
@@ -204,8 +227,14 @@ run_login_attempt() {
     try_render_qr_image || true
   fi
 
+  LOG_SIZE=$(wc -c < "$LOGIN_LOG" 2>/dev/null || echo 0)
+
   if [ "$QR_GENERATED" = "true" ]; then
     ATTEMPT_RESULT="png"
+  elif grep -q "Failed to start login" "$LOGIN_LOG" 2>/dev/null; then
+    ATTEMPT_RESULT="start-failed"
+  elif [ "$LOG_SIZE" -eq 0 ]; then
+    ATTEMPT_RESULT="empty-log"
   elif [ -n "$QR_URL" ] && grep -q "AbortError" "$LOGIN_LOG" 2>/dev/null; then
     ATTEMPT_RESULT="url-only-aborted"
   elif [ -n "$QR_URL" ]; then
@@ -280,7 +309,7 @@ fi
 
 node -e '
   const fs = require("fs");
-  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrFile, qrUrl, qrGenerated, renderLog, attemptCount, attemptResult] = process.argv.slice(1);
+  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrFile, qrUrl, qrGenerated, renderLog, attemptCount, attemptResult, captureMode] = process.argv.slice(1);
   fs.writeFileSync(filePath, JSON.stringify({
     tenantId,
     displayName,
@@ -293,12 +322,13 @@ node -e '
     renderLog,
     qrAttempts: Number(attemptCount),
     qrAttemptResult: attemptResult,
+    loginCaptureMode: captureMode,
     status: "awaiting_scan",
     createdAt: new Date().toISOString()
   }, null, 2));
-' "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_FILE" "$QR_URL" "$QR_GENERATED" "$QR_RENDER_LOG" "$ATTEMPT_USED" "$ATTEMPT_RESULT"
+' "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_FILE" "$QR_URL" "$QR_GENERATED" "$QR_RENDER_LOG" "$ATTEMPT_USED" "$ATTEMPT_RESULT" "$LOGIN_CAPTURE_MODE"
 
-update_registry_tenant "{\"status\":\"awaiting_scan\",\"bound\":false,\"qrAttempts\":$ATTEMPT_USED,\"qrGenerated\":$QR_GENERATED,\"qrUrl\":$(node -e 'console.log(JSON.stringify(process.argv[1] || ""))' "$QR_URL"),\"lastQrError\":\"$ATTEMPT_RESULT\"}" >/dev/null 2>&1 || true
+update_registry_tenant "{\"status\":\"awaiting_scan\",\"bound\":false,\"qrAttempts\":$ATTEMPT_USED,\"qrGenerated\":$QR_GENERATED,\"qrUrl\":$(node -e 'console.log(JSON.stringify(process.argv[1] || ""))' "$QR_URL"),\"lastQrError\":\"$ATTEMPT_RESULT\",\"loginCaptureMode\":$(node -e 'console.log(JSON.stringify(process.argv[1] || ""))' "$LOGIN_CAPTURE_MODE")}" >/dev/null 2>&1 || true
 
 if [ "$QR_GENERATED" = "true" ]; then
   NOTICE_MESSAGE="子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定"

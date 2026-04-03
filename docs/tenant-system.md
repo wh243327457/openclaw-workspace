@@ -174,6 +174,7 @@ sh scripts/gateway-reload.sh
 | `scripts/delete-tenant.sh <id>` | 清理一切 | 删除子系统 |
 | `scripts/healthcheck-tenant.sh [id]` | 巡检 tenant 的 registry / binding / accounts / allowlist 一致性 | 排查 / 验证 |
 | `scripts/check-tenants.sh [id]` | `healthcheck-tenant.sh` 的简短入口 | 日常巡检 |
+| `scripts/repair-tenant.sh <id> [--force]` | 清理陈旧 pending / watch pid，尝试恢复缺失的 binding 或 allowlist，并收敛 registry 状态 | 卡死补救 / 一致性修复 |
 
 ## 六、排查命令
 
@@ -195,6 +196,9 @@ sh scripts/check-tenants.sh friend-001
 
 # 巡检所有 tenant
 sh scripts/check-tenants.sh
+
+# 修复某个 tenant 的陈旧 pending / 丢失 binding / allowlist 问题
+sh scripts/repair-tenant.sh friend-001
 
 # 查看 agent 会话
 ls ~/.openclaw/agents/<agentId>/sessions/
@@ -241,4 +245,5 @@ openclaw message send \
 > - 优先发 PNG
 > - 失败时降级到链接
 > - 遇到 login AbortError / 只拿到链接时自动补一次重试
+> - 优先用 TTY/`script` 方式捕获登录输出，降低空日志问题
 > - 详细排障看 `tenants/*-login.log` 与 `tenants/*-render.log`
