@@ -96,16 +96,34 @@ send_owner_notice() {
   fi
 }
 
+try_render_qr_image() {
+  if [ "$QR_GENERATED" = "true" ]; then
+    return 0
+  fi
+
+  if node "$QR_RENDERER" \
+    --input "$LOGIN_LOG" \
+    --pbm "$QR_PBM_FILE" \
+    --png "$QR_FILE" > /dev/null 2>"$QR_RENDER_LOG"; then
+    QR_GENERATED="true"
+    return 0
+  fi
+
+  return 1
+}
+
 echo "── 阶段 2/3：生成二维码 ──"
 echo "⏳ 启动微信登录..."
 
 : > "$LOGIN_LOG"
+: > "$QR_RENDER_LOG"
 $OPENCLAW_BIN channels login --channel openclaw-weixin > "$LOGIN_LOG" 2>&1 &
 LOGIN_PID=$!
 
 QR_URL=""
 QR_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.png"
 QR_PBM_FILE="$WORKSPACE/tenants/$TENANT_ID-qr.pbm"
+QR_RENDER_LOG="$WORKSPACE/tenants/$TENANT_ID-render.log"
 QR_GENERATED="false"
 
 for i in $(seq 1 30); do
@@ -119,14 +137,9 @@ for i in $(seq 1 30); do
     " "$LOGIN_LOG" 2>/dev/null)
   fi
 
-  if [ "$QR_GENERATED" != "true" ] && node "$QR_RENDERER" \
-    --input "$LOGIN_LOG" \
-    --pbm "$QR_PBM_FILE" \
-    --png "$QR_FILE" >/dev/null 2>&1; then
-    QR_GENERATED="true"
-  fi
+  try_render_qr_image || true
 
-  if [ "$QR_GENERATED" = "true" ] || [ -n "$QR_URL" ]; then
+  if [ "$QR_GENERATED" = "true" ]; then
     break
   fi
 
@@ -135,16 +148,33 @@ for i in $(seq 1 30); do
   fi
 done
 
+# URL 往往比终端二维码字符画更早刷进日志；发现链接后继续补几轮渲染，
+# 避免过早退出导致“只有链接，没有图片”。
+if [ "$QR_GENERATED" != "true" ] && [ -n "$QR_URL" ]; then
+  for i in $(seq 1 5); do
+    sleep 1
+    try_render_qr_image && break
+  done
+fi
+
+# 再用最终日志做一次兜底渲染，尽量把完整二维码转成图片。
+if [ "$QR_GENERATED" != "true" ]; then
+  try_render_qr_image || true
+fi
+
 if [ "$QR_GENERATED" != "true" ] && [ -z "$QR_URL" ]; then
   echo "❌ 二维码生成失败"
   echo "   排查日志: cat $LOGIN_LOG"
+  if [ -s "$QR_RENDER_LOG" ]; then
+    echo "   渲染日志: cat $QR_RENDER_LOG"
+  fi
   kill "$LOGIN_PID" 2>/dev/null || true
   exit 1
 fi
 
 node -e "
   const fs = require('fs');
-  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrFile, qrUrl] = process.argv.slice(1);
+  const [filePath, tenantId, displayName, existingAccounts, loginPid, loginLog, qrFile, qrUrl, qrGenerated, renderLog] = process.argv.slice(1);
   fs.writeFileSync(filePath, JSON.stringify({
     tenantId,
     displayName,
@@ -153,13 +183,20 @@ node -e "
     loginLog,
     qrFile,
     qrUrl,
+    qrGenerated: qrGenerated === 'true',
+    renderLog,
     status: 'awaiting_scan',
     createdAt: new Date().toISOString()
   }, null, 2));
-" "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_FILE" "$QR_URL"
+" "$PENDING_FILE" "$TENANT_ID" "$DISPLAY_NAME" "$BEFORE" "$LOGIN_PID" "$LOGIN_LOG" "$QR_FILE" "$QR_URL" "$QR_GENERATED" "$QR_RENDER_LOG"
 
 if [ "$QR_GENERATED" = "true" ]; then
-  send_owner_notice "子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定" "$QR_FILE"
+  NOTICE_MESSAGE="子系统 $DISPLAY_NAME 二维码 👆 让朋友扫码绑定"
+  if [ -n "$QR_URL" ]; then
+    NOTICE_MESSAGE="$NOTICE_MESSAGE
+备用链接：$QR_URL"
+  fi
+  send_owner_notice "$NOTICE_MESSAGE" "$QR_FILE"
 elif [ -n "$QR_URL" ]; then
   send_owner_notice "子系统 $DISPLAY_NAME 绑定链接：$QR_URL" ""
 fi
