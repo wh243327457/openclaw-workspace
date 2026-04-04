@@ -64,6 +64,21 @@ python3 -m tools.gap_backlog.main json
 python3 -m tools.gap_backlog.main markdown
 ```
 
+### `proxy-web-fetch`
+
+用途：在当前代理环境下抓网页正文，绕开内建 `web_fetch` 对 `198.18.x.x` 的误判。
+
+- 复用当前 `HTTP_PROXY` / `HTTPS_PROXY`
+- 提取 text / markdown / json 三种输出
+- 适合作为当前环境下的临时正文抓取替代工具
+
+运行：
+
+```bash
+python3 -m tools.proxy_web_fetch_main https://docs.openclaw.ai --format markdown --max-chars 5000
+python3 -m tools.proxy_web_fetch_main https://duckduckgo.com --format text --max-chars 2000
+```
+
 ## 设计原则
 
 - 先做只读工具
