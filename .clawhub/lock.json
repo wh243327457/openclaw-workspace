@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "skills": {
+    "openclaw-skill-vetter": {
+      "version": "1.0.0",
+      "installedAt": 1775278998326
+    },
+    "openclaw-backup": {
+      "version": "1.0.0",
+      "installedAt": 1775279042885
+    }
+  }
+}
