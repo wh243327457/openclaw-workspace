@@ -28,6 +28,7 @@
 ## 本地脚本
 
 - `sh scripts/route-task.sh <keyword> [task-summary]`
+- `sh scripts/select-agent-runtime.sh <keyword> [role-hint]`
 - `sh scripts/prepare-dispatch.sh <role> "<task-summary>" [output-file]`
 - `sh scripts/create-checkpoint.sh`
 - `sh scripts/dispatch-stats.sh`
@@ -47,6 +48,21 @@
 - 让我们开始区分“只路由了”还是“真的执行了”
 - 为后面补更细的调用统计留接口
 
+## runtime selector
+
+`sh scripts/select-agent-runtime.sh <keyword> [role-hint]` 会综合：
+
+- 任务关键词的默认路由
+- 角色默认模型
+- `agent-team/health-state.json` 的模型健康状态
+- 当前 override / fallback 状态
+
+输出：
+- 推荐 agent
+- 推荐 model
+- 是否命中 fallback
+- 选择原因
+
 ## 当前注意点
 
 - MiMo 已从运行配置移除，不再参与 fallback
@@ -63,3 +79,13 @@
 4. 是否有 checkpoint / dispatch 留痕
 5. `agent-team/runtime/dispatch-log.jsonl` 是否持续产生新记录
 6. `agent-team/runtime/execution-log.jsonl` 是否出现 start / finish 成对记录
+
+## 推荐使用顺序
+
+对于一个非 trivial 任务，推荐顺序是：
+
+1. `sh scripts/route-task.sh <keyword> "<summary>"`
+2. `sh scripts/select-agent-runtime.sh <keyword> [role-hint]`
+3. `sh scripts/prepare-dispatch.sh <role> "<summary>"`
+4. 真正执行前后，用 `trace-agent-start.sh` / `trace-agent-finish.sh` 写 execution log
+5. 用 `dispatch-stats.sh` / `execution-stats.sh` 回看系统是否真的在工作
