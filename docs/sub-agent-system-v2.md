@@ -138,7 +138,7 @@ port = 18800
 token = "alice-unique-token-xxx"
 
 [agents.defaults]
-defaultModel = "xiaomi/mimo-v2-pro"
+defaultModel = "gpt-5.2"
 
 [channels.weixin]
 # Alice 的微信绑定配置

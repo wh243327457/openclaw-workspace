@@ -12,20 +12,6 @@
   },
   "models": [
     {
-      "label": "MiMo V2 Pro",
-      "provider": "openrouter",
-      "modelName": "xiaomi/mimo-v2-pro",
-      "baseUrl": null,
-      "apiKeyRef": "OPENROUTER_API_KEY",
-      "maxTokens": 1048576,
-      "costTier": "standard",
-      "tags": [
-        "chat",
-        "daily",
-        "coding"
-      ]
-    },
-    {
       "label": "MiniMax-M2.7",
       "provider": "minimax",
       "modelName": "MiniMax-M2.7",
@@ -36,7 +22,8 @@
       "tags": [
         "chat",
         "daily",
-        "analysis"
+        "analysis",
+        "memory"
       ]
     },
     {
@@ -63,7 +50,8 @@
       "tags": [
         "chat",
         "coding",
-        "reasoning"
+        "reasoning",
+        "execution"
       ]
     },
     {
@@ -76,7 +64,8 @@
       "costTier": "premium",
       "tags": [
         "coding",
-        "reasoning"
+        "reasoning",
+        "skills"
       ]
     },
     {
@@ -88,7 +77,8 @@
       "maxTokens": 400000,
       "costTier": "economy",
       "tags": [
-        "coding"
+        "coding",
+        "execution"
       ]
     },
     {
@@ -115,7 +105,8 @@
       "tags": [
         "chat",
         "coding",
-        "reasoning"
+        "reasoning",
+        "review"
       ]
     }
   ],
@@ -123,7 +114,7 @@
     "main-assistant": {
       "label": "主助手",
       "role": "coordinator",
-      "defaultModel": "xiaomi/mimo-v2-pro",
+      "defaultModel": "gpt-5.4",
       "groupPolicy": "active",
       "userFacing": true,
       "allowTaskOverride": true,
@@ -132,15 +123,15 @@
       "apiKeyRef": null,
       "className": null,
       "fallbackModels": [
-        "xiaomi/mimo-v2-pro",
-        "MiniMax-M2.7",
-        "kimi-k2.5"
+        "gpt-5.2",
+        "gpt-5.4-mini",
+        "MiniMax-M2.7"
       ]
     },
     "memory-operator": {
       "label": "记忆管家",
       "role": "memory",
-      "defaultModel": "xiaomi/mimo-v2-pro",
+      "defaultModel": "MiniMax-M2.7",
       "groupPolicy": "silent",
       "userFacing": false,
       "allowTaskOverride": true,
@@ -149,14 +140,14 @@
       "apiKeyRef": null,
       "className": null,
       "fallbackModels": [
-        "MiniMax-M2.7",
-        "kimi-k2.5"
+        "gpt-5.4-mini",
+        "gpt-5.2"
       ]
     },
     "skill-builder": {
       "label": "技能开发",
       "role": "skills",
-      "defaultModel": "xiaomi/mimo-v2-pro",
+      "defaultModel": "gpt-5.3-codex",
       "groupPolicy": "silent",
       "userFacing": false,
       "allowTaskOverride": true,
@@ -165,14 +156,15 @@
       "apiKeyRef": null,
       "className": null,
       "fallbackModels": [
-        "MiniMax-M2.7",
-        "kimi-k2.5"
+        "gpt-5.1-codex",
+        "gpt-5.2",
+        "MiniMax-M2.7"
       ]
     },
     "project-operator": {
       "label": "项目执行",
       "role": "execution",
-      "defaultModel": "xiaomi/mimo-v2-pro",
+      "defaultModel": "gpt-5.2",
       "groupPolicy": "silent",
       "userFacing": false,
       "allowTaskOverride": true,
@@ -181,15 +173,15 @@
       "apiKeyRef": null,
       "className": null,
       "fallbackModels": [
-        "xiaomi/mimo-v2-pro",
-        "MiniMax-M2.7",
-        "kimi-k2.5"
+        "gpt-5.1-codex",
+        "gpt-5.4-mini",
+        "MiniMax-M2.7"
       ]
     },
     "review-agent": {
       "label": "审查复核",
       "role": "review",
-      "defaultModel": "xiaomi/mimo-v2-pro",
+      "defaultModel": "gpt-5.4",
       "groupPolicy": "silent",
       "userFacing": false,
       "allowTaskOverride": false,
@@ -198,9 +190,9 @@
       "apiKeyRef": null,
       "className": null,
       "fallbackModels": [
-        "xiaomi/mimo-v2-pro",
-        "MiniMax-M2.7",
-        "kimi-k2.5"
+        "gpt-5.2",
+        "gpt-5.3-codex",
+        "MiniMax-M2.7"
       ]
     }
   },
@@ -208,31 +200,31 @@
     {
       "taskType": "coding",
       "order": [
-        "main-assistant",
-        "memory-operator",
-        "skill-builder",
         "project-operator",
-        "review-agent"
+        "skill-builder",
+        "review-agent",
+        "main-assistant",
+        "memory-operator"
       ]
     },
     {
       "taskType": "planning",
       "order": [
         "main-assistant",
-        "memory-operator",
-        "skill-builder",
         "project-operator",
-        "review-agent"
+        "review-agent",
+        "skill-builder",
+        "memory-operator"
       ]
     },
     {
       "taskType": "research",
       "order": [
         "main-assistant",
-        "memory-operator",
-        "skill-builder",
+        "review-agent",
         "project-operator",
-        "review-agent"
+        "memory-operator",
+        "skill-builder"
       ]
     },
     {
@@ -240,8 +232,8 @@
       "order": [
         "main-assistant",
         "memory-operator",
-        "skill-builder",
         "project-operator",
+        "skill-builder",
         "review-agent"
       ]
     },
@@ -249,10 +241,10 @@
       "taskType": "analysis",
       "order": [
         "main-assistant",
+        "review-agent",
         "memory-operator",
-        "skill-builder",
         "project-operator",
-        "review-agent"
+        "skill-builder"
       ]
     }
   ],
@@ -267,11 +259,11 @@
   },
   "smartStrategy": {
     "loadBalancing": {
-      "enabled": false,
-      "strategy": "none"
+      "enabled": true,
+      "strategy": "role-default"
     },
     "tokenBudget": {
-      "enabled": false,
+      "enabled": true,
       "monthlyTokens": null,
       "overBudgetAction": "downgrade"
     },

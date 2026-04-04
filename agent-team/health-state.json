@@ -1,0 +1,139 @@
+{
+  "models": {
+    "xiaomi/mimo-v2-pro": {
+      "status": "down",
+      "failCount": 1369,
+      "recoverCount": 0,
+      "lastCheck": 1775267949538,
+      "checks": 2214,
+      "fails": 1406,
+      "latency": 792,
+      "lastUp": 1775084180140,
+      "lastFail": 1775267949538,
+      "lastError": "HTTP 401: {\"error\":{\"message\":\"Missing Authentication header\",\"code\":401}}"
+    },
+    "MiniMax-M2.7": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 284,
+      "lastCheck": 1775268069560,
+      "checks": 2209,
+      "fails": 544,
+      "latency": 785,
+      "lastUp": 1775268069560,
+      "lastFail": 1775234011145,
+      "lastError": null
+    },
+    "kimi-k2.5": {
+      "status": "down",
+      "failCount": 2198,
+      "recoverCount": 0,
+      "lastCheck": 1775268069724,
+      "checks": 2205,
+      "fails": 2198,
+      "latency": 162,
+      "lastUp": 1774962136344,
+      "lastFail": 1775268069724,
+      "lastError": "HTTP 404: {\"error\":{\"message\":\"The requested resource was not found\",\"type\":\"resource_not_found_error\"}}"
+    },
+    "gpt-5.2": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 2,
+      "lastCheck": 1775268070541,
+      "checks": 2204,
+      "fails": 520,
+      "latency": 815,
+      "lastFail": 1775267835266,
+      "lastError": null,
+      "lastUp": 1775268070541
+    },
+    "gpt-5.3-codex": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 24,
+      "lastCheck": 1775268071186,
+      "checks": 2204,
+      "fails": 539,
+      "latency": 643,
+      "lastFail": 1775265197234,
+      "lastError": null,
+      "lastUp": 1775268071186
+    },
+    "gpt-5.1-codex": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 127,
+      "lastCheck": 1775268071450,
+      "checks": 2204,
+      "fails": 409,
+      "latency": 262,
+      "lastFail": 1775252846021,
+      "lastError": null,
+      "lastUp": 1775268071450
+    },
+    "gpt-5.4-mini": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 53,
+      "lastCheck": 1775268071679,
+      "checks": 2205,
+      "fails": 366,
+      "latency": 227,
+      "lastFail": 1775261722518,
+      "lastError": null,
+      "lastUp": 1775268071679
+    },
+    "gpt-5.4": {
+      "status": "up",
+      "failCount": 0,
+      "recoverCount": 241,
+      "lastCheck": 1775268071938,
+      "checks": 2206,
+      "fails": 310,
+      "latency": 257,
+      "lastFail": 1775239176300,
+      "lastError": null,
+      "lastUp": 1775268071938
+    }
+  },
+  "overrides": {
+    "memory-operator": {
+      "originalModel": "xiaomi/mimo-v2-pro",
+      "currentModel": "gpt-5.1-codex",
+      "currentModelLabel": "GPT-5.1 Codex (中转)",
+      "switchedAt": 1775231979397,
+      "switchedAtTs": "2026-04-03 15:59:39",
+      "reason": "模型不可用 (fetch failed)"
+    },
+    "skill-builder": {
+      "originalModel": "xiaomi/mimo-v2-pro",
+      "currentModel": "gpt-5.1-codex",
+      "currentModelLabel": "GPT-5.1 Codex (中转)",
+      "switchedAt": 1775231973302,
+      "switchedAtTs": "2026-04-03 15:59:33",
+      "reason": "模型不可用 (fetch failed)"
+    },
+    "project-operator": {
+      "originalModel": "xiaomi/mimo-v2-pro",
+      "currentModel": "gpt-5.1-codex",
+      "currentModelLabel": "GPT-5.1 Codex (中转)",
+      "switchedAt": 1775231979408,
+      "switchedAtTs": "2026-04-03 15:59:39",
+      "reason": "模型不可用 (fetch failed)"
+    },
+    "review-agent": {
+      "originalModel": "xiaomi/mimo-v2-pro",
+      "currentModel": "gpt-5.4",
+      "currentModelLabel": "GPT-5.4 (中转)",
+      "switchedAt": 1775231973324,
+      "switchedAtTs": "2026-04-03 15:59:33",
+      "reason": "模型不可用 (fetch failed)"
+    }
+  },
+  "stats": {
+    "totalChecks": 2214,
+    "totalFails": 203,
+    "totalSwitches": 204
+  }
+}
