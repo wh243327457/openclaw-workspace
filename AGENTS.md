@@ -122,6 +122,17 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
      - 项目+技能 → project + skill + review
 ```
 
+### 运行时辅助
+
+为避免“有角色配置但没有实际调度留痕”，进行非 trivial delegation 时优先配合这些本地脚本：
+
+- `sh scripts/route-task.sh <keyword> [task-summary]`：先决定默认角色并写 dispatch log
+- `sh scripts/prepare-dispatch.sh <role> "<task-summary>" [output-file]`：生成结构化 handoff 模板
+- `sh scripts/create-checkpoint.sh`：在模型切换、暂停或较长任务前落 checkpoint
+- `sh scripts/dispatch-stats.sh`：回看最近 dispatch 是否真的发生
+
+这些脚本的目的不是替代判断，而是让 agent-team 从“只在规则里存在”变成“运行时看得见”。
+
 ### 任务分发格式
 
 spawn 时必须包含：
