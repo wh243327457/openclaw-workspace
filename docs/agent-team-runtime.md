@@ -27,6 +27,26 @@
 - 审查/风险/关键行为变更 -> `review-agent`
 - 简单回答/短解释 -> `main-assistant`
 
+## Token 节省规则
+
+对于长任务或长聊天，先做“历史相关性门控”，再决定是否压缩：
+
+- **~60k tokens 左右**：开始判断这次请求是否真的需要历史聊天
+- **~80k tokens 左右**：默认优先给摘要/context pack，而不是继续附带大量原始聊天
+- **100k+ tokens**：默认进入压缩模式，优先交给 `compression-operator`
+
+历史相关性分四档：
+
+- `none`：不需要旧聊天
+- `recent`：只需要最近几轮
+- `summary`：只需要结构化摘要
+- `full`：确实需要完整历史
+
+默认优先级：
+`none -> recent -> summary -> full`
+
+除非有明确原因，否则不要把 `full` 当默认选项。
+
 ## 本地脚本
 
 - `sh scripts/route-task.sh <keyword> [task-summary]`
