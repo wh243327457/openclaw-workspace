@@ -215,7 +215,7 @@ echo ""
 [ -n "$proxy_found" ] && ok "代理: $proxy_found" || warn "代理: 未配置"
 [ -d "$WS/exports/openclaw-skills/.git" ] && ok "技能仓库: 已连接" || fail "技能仓库: 未连接"
 [ -d "$WS/exports/openclaw-shared-memory/.git" ] && ok "共享记忆仓库: 已连接" || fail "共享记忆仓库: 未连接"
-[ -d "$WS/skills" ] && ok "Skills 软链接: 已创建" || warn "Skills 软链接: 未创建"
+[ -d "$WS/exports/openclaw-skills/skills" ] && ok "共享技能目录: 已存在 exports/openclaw-skills/skills" || warn "共享技能目录: 缺失"
 
 echo ""
 echo -e "${GREEN}下一步：与 Agent 开始对话 🚀${NC}"

@@ -67,10 +67,9 @@ echo ""
 echo "🔗 检查私有仓库..."
 if [ -d "$WS/exports/openclaw-skills/.git" ]; then
   echo "  ✅ 技能仓库已连接"
-  # 创建 skills 软链接
   if [ -d "$WS/exports/openclaw-skills/skills" ]; then
-    ln -sfn "$WS/exports/openclaw-skills/skills" "$WS/skills"
-    echo "  ✅ skills/ → exports/openclaw-skills/skills"
+    echo "  ✅ 共享技能目录可用: exports/openclaw-skills/skills"
+    echo "  ℹ️  不再创建 skills/ 软链接；共享技能应通过 OpenClaw 配置加载"
   fi
 else
   echo "  ❌ 技能仓库未连接（必须）"
