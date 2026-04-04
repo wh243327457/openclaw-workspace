@@ -27,9 +27,20 @@
 
 ## 本地脚本
 
-- `sh scripts/route-task.sh <keyword>`
+- `sh scripts/route-task.sh <keyword> [task-summary]`
 - `sh scripts/prepare-dispatch.sh <role> "<task-summary>" [output-file]`
 - `sh scripts/create-checkpoint.sh`
+- `sh scripts/dispatch-stats.sh`
+
+## 运行留痕
+
+- dispatch 路由记录默认写入：`agent-team/runtime/dispatch-log.jsonl`
+- checkpoint 默认写入：`agent-team/checkpoints/`
+
+这样做的目的：
+- 不把运行时状态污染到长期记忆
+- 让后续可以看见系统到底有没有真的发生调度
+- 为后面补更细的调用统计留接口
 
 ## 当前注意点
 
@@ -45,3 +56,4 @@
 2. 是否使用了角色对应的默认模型
 3. 是否触发了 fallback 并写回了 `agent-team/health-state.json`
 4. 是否有 checkpoint / dispatch 留痕
+5. `agent-team/runtime/dispatch-log.jsonl` 是否持续产生新记录

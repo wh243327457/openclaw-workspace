@@ -15,86 +15,86 @@
     "MiniMax-M2.7": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 284,
-      "lastCheck": 1775268069560,
-      "checks": 2209,
+      "recoverCount": 289,
+      "lastCheck": 1775268668862,
+      "checks": 2214,
       "fails": 544,
-      "latency": 785,
-      "lastUp": 1775268069560,
+      "latency": 881,
+      "lastUp": 1775268668862,
       "lastFail": 1775234011145,
       "lastError": null
     },
     "kimi-k2.5": {
       "status": "down",
-      "failCount": 2198,
+      "failCount": 2203,
       "recoverCount": 0,
-      "lastCheck": 1775268069724,
-      "checks": 2205,
-      "fails": 2198,
-      "latency": 162,
+      "lastCheck": 1775268669012,
+      "checks": 2210,
+      "fails": 2203,
+      "latency": 148,
       "lastUp": 1774962136344,
-      "lastFail": 1775268069724,
+      "lastFail": 1775268669012,
       "lastError": "HTTP 404: {\"error\":{\"message\":\"The requested resource was not found\",\"type\":\"resource_not_found_error\"}}"
     },
     "gpt-5.2": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 2,
-      "lastCheck": 1775268070541,
-      "checks": 2204,
+      "recoverCount": 7,
+      "lastCheck": 1775268669962,
+      "checks": 2209,
       "fails": 520,
-      "latency": 815,
+      "latency": 947,
       "lastFail": 1775267835266,
       "lastError": null,
-      "lastUp": 1775268070541
+      "lastUp": 1775268669962
     },
     "gpt-5.3-codex": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 24,
-      "lastCheck": 1775268071186,
-      "checks": 2204,
+      "recoverCount": 29,
+      "lastCheck": 1775268670756,
+      "checks": 2209,
       "fails": 539,
-      "latency": 643,
+      "latency": 791,
       "lastFail": 1775265197234,
       "lastError": null,
-      "lastUp": 1775268071186
+      "lastUp": 1775268670756
     },
     "gpt-5.1-codex": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 127,
-      "lastCheck": 1775268071450,
-      "checks": 2204,
+      "recoverCount": 132,
+      "lastCheck": 1775268671045,
+      "checks": 2209,
       "fails": 409,
-      "latency": 262,
+      "latency": 286,
       "lastFail": 1775252846021,
       "lastError": null,
-      "lastUp": 1775268071450
+      "lastUp": 1775268671045
     },
     "gpt-5.4-mini": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 53,
-      "lastCheck": 1775268071679,
-      "checks": 2205,
+      "recoverCount": 58,
+      "lastCheck": 1775268671311,
+      "checks": 2210,
       "fails": 366,
-      "latency": 227,
+      "latency": 264,
       "lastFail": 1775261722518,
       "lastError": null,
-      "lastUp": 1775268071679
+      "lastUp": 1775268671311
     },
     "gpt-5.4": {
       "status": "up",
       "failCount": 0,
-      "recoverCount": 241,
-      "lastCheck": 1775268071938,
-      "checks": 2206,
+      "recoverCount": 246,
+      "lastCheck": 1775268671602,
+      "checks": 2211,
       "fails": 310,
-      "latency": 257,
+      "latency": 289,
       "lastFail": 1775239176300,
       "lastError": null,
-      "lastUp": 1775268071938
+      "lastUp": 1775268671602
     }
   },
   "overrides": {
@@ -132,7 +132,7 @@
     }
   },
   "stats": {
-    "totalChecks": 2214,
+    "totalChecks": 2219,
     "totalFails": 203,
     "totalSwitches": 204
   }
