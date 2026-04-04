@@ -41,6 +41,7 @@
 - 技能发现与路由采用“先查 `skills/` 和 `tools/`，再决定是否新造流程”的策略，并已写入总规则。
 - `SKILL.md` 开始采用统一轻量 frontmatter 元数据规范，核心字段包括：`triggers`、`tags`、`inputs`、`outputs`、`risks`。
 - agent-team 多模型子 agent 系统当前不再使用 MiMo；角色默认模型重分配为：`main-assistant -> gpt-5.4`、`memory-operator -> MiniMax-M2.7`、`skill-builder -> gpt-5.3-codex`、`project-operator -> gpt-5.2`、`review-agent -> gpt-5.4`，用于降低并发时单模型拥堵。
+- agent-team 运行层已补本地 dispatch / checkpoint / tracing 工具：`prepare-dispatch.sh`、`create-checkpoint.sh`、`route-task.sh`、`dispatch-stats.sh`、`trace-agent-start.sh`、`trace-agent-finish.sh`、`execution-stats.sh`；运行留痕默认落在 `agent-team/runtime/`，用于区分“已路由”与“已执行”。
 
 ## Assistant Working Model
 

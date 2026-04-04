@@ -27,6 +27,7 @@ TASK_SUMMARY="${2:-}"
 WORKSPACE="${WORKSPACE:-/home/node/.openclaw/workspace}"
 RUNTIME_DIR="$WORKSPACE/agent-team/runtime"
 LOG_FILE="$RUNTIME_DIR/dispatch-log.jsonl"
+CONFIG_FILE="$WORKSPACE/agent-team/config.json"
 mkdir -p "$RUNTIME_DIR"
 
 case "$KEYWORD" in
@@ -58,18 +59,28 @@ case "$KEYWORD" in
     ;;
 esac
 
+DEFAULT_MODEL=""
+if [ -f "$CONFIG_FILE" ]; then
+  DEFAULT_MODEL=$(node -e '
+    const fs = require("fs");
+    const cfg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    console.log(cfg.agents?.[process.argv[2]]?.defaultModel || "");
+  ' "$CONFIG_FILE" "$ROLE" 2>/dev/null || true)
+fi
+
 NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [ -n "$TASK_SUMMARY" ]; then
   node -e '
     const fs = require("fs");
-    const [file, time, keyword, role, taskType, summary] = process.argv.slice(1);
-    const entry = { time, keyword, role, taskType, summary };
+    const [file, time, keyword, role, taskType, summary, model] = process.argv.slice(1);
+    const entry = { time, keyword, role, taskType, summary, model };
     fs.appendFileSync(file, JSON.stringify(entry) + "\n");
-  ' "$LOG_FILE" "$NOW_ISO" "$KEYWORD" "$ROLE" "$TASK_TYPE" "$TASK_SUMMARY"
+  ' "$LOG_FILE" "$NOW_ISO" "$KEYWORD" "$ROLE" "$TASK_TYPE" "$TASK_SUMMARY" "$DEFAULT_MODEL"
 fi
 
 echo "Route: $KEYWORD -> $ROLE"
 [ -n "$TASK_SUMMARY" ] && echo "Task: $TASK_SUMMARY"
+[ -n "$DEFAULT_MODEL" ] && echo "Default model: $DEFAULT_MODEL"
 echo
 echo "Dispatch command:"
 echo "  sh scripts/prepare-dispatch.sh $ROLE \"<task-summary>\""
