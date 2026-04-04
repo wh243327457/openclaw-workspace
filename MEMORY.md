@@ -46,6 +46,7 @@
 - 已新增共享技能 `context-pressure-management`：当工作上下文逼近或超过 100k token 时，默认开始做上下文压缩、阶段摘要和 artifact-backed 状态收口，而不是继续无脑堆历史上下文。
 - agent-team 已加入 `compression-operator`，默认使用 `MiniMax-M2.7` 处理上下文压缩与提炼；策略是先让低成本模型压缩长上下文，再把压缩后的核心状态交回主模型继续处理。
 - 这套省 token 规则默认采用两段式：先做历史相关性门控（`none` / `recent` / `summary` / `full`），再按阈值分层处理（约 60k 开始门控、约 80k 摘要优先、100k+ 默认强制压缩）。
+- 主人要求这套省 token / 上下文门控规则不只是技能存在，而要成为每次对话默认加载的规则层；因此已写入默认会加载的 `AGENTS.md` / `SOUL.md`，作为对话级默认行为。
 - agent-team 现已加入 `compression-operator`（默认 `MiniMax-M2.7`），专门用于上下文逼近 100k token 时的压缩提炼与阶段摘要，避免高成本主模型长期背着大上下文继续跑。
 - 当前环境中，代理出网是正常的；但 `web_fetch` 会将代理映射到的 `198.18.0.x` 外部地址误判成 private/special-use IP 并阻断。这意味着搜索摘要能用、正文抓取失效；根修应在 `web_fetch` 的安全判定逻辑，而不是搜索词层面。
 - 当前 workspace 已补一个本地替代抓取工具：`python3 -m tools.proxy_web_fetch_main <url>`，用于在当前代理环境下抓网页正文，作为内建 `web_fetch` 被误杀时的临时绕行方案。

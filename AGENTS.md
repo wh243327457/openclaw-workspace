@@ -75,6 +75,12 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
    - 先查文件、查技能、查工具、查上下文，尽量带着结论回来。
    - 但涉及外部动作、高风险操作、关键规则变更或低置信度结论时，必须及时 `ask / review`。
 
+8. **上下文勤俭持家**
+   - 默认不要把旧聊天历史整段带入后续推理；先判断这次任务到底需不需要历史。
+   - 历史相关性默认分四档：`none` / `recent` / `summary` / `full`，优先选择最轻的一档。
+   - 上下文约 60k 时开始做相关性门控；约 80k 时默认摘要优先；100k+ 时默认进入压缩模式。
+   - 当需要压缩时，优先保留：目标、当前阶段、关键决策、已验证事实、未解决风险、下一步动作；其余尽量转成 checkpoint / review / daily memory，而不是继续堆在聊天里。
+
 ## Long Tasks - 团队调度
 
 **我是 coordinator（main-assistant），不是执行者。把活分出去。**
