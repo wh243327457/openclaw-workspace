@@ -1,4 +1,18 @@
 {
   "version": 1,
-  "tenants": {}
+  "tenants": {
+    "friend-001": {
+      "displayName": "小 T",
+      "workspace": "/home/node/.openclaw/workspace-friend-001",
+      "bound": false,
+      "seq": 1,
+      "createdAt": "2026-04-02T17:33:18.353Z",
+      "status": "awaiting_scan",
+      "qrAttempts": 1,
+      "lastQrIssuedAt": "2026-04-03T19:11:27Z",
+      "allowlisted": false,
+      "lastQrError": "no-qr"
+    }
+  },
+  "ownerPeer": "o9cq801zk7qTYT_A2Z9JkDumupX8@im.wechat"
 }

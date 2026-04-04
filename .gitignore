@@ -21,6 +21,7 @@ agent-team/checkpoints/
 # 运行时文件
 agent-team/health-state.json
 agent-team/health-log.json
+agent-team/runtime/
 agent-team/ui/archive/
 __pycache__/
 *.pyc
