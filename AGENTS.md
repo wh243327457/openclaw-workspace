@@ -98,6 +98,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 | 角色 | 标签 | 什么时候用 |
 |------|------|-----------|
 | memory-operator | `memory` | 记住/回忆/更新长期记忆/共享记忆维护 |
+| compression-operator | `compression` | 上下文压缩、阶段摘要、长任务状态收敛 |
 | skill-builder | `skill` | 创建/改进/重构技能 |
 | project-operator | `project` | 多步骤执行/写代码/改配置/项目实施 |
 | review-agent | `review` | 审查风险/合并判断/广泛行为变更前的质量门 |
@@ -110,6 +111,8 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
   ├─ 简单回答/解释/快速编辑（<10秒）→ 自己搞定
   │
   ├─ "记住这个"/回忆/记忆维护 → spawn memory-operator
+  │
+  ├─ 上下文过长/需要阶段摘要/需要压缩状态 → spawn compression-operator
   │
   ├─ 创建或改进技能/模板/工作流 → spawn skill-builder
   │

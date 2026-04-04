@@ -5,6 +5,9 @@ if [ $# -lt 1 ]; then
   echo "usage: $0 <task-keyword> [task-summary]"
   echo
   echo "Keywords:"
+  echo "  compression     -> compression-operator"
+  echo "  compress        -> compression-operator"
+  echo "  context         -> compression-operator"
   echo "  memory          -> memory-operator"
   echo "  remember        -> memory-operator"
   echo "  skill           -> skill-builder"
@@ -31,6 +34,10 @@ CONFIG_FILE="$WORKSPACE/agent-team/config.json"
 mkdir -p "$RUNTIME_DIR"
 
 case "$KEYWORD" in
+  compression|compress|context|summarize-context|context-compress)
+    ROLE="compression-operator"
+    TASK_TYPE="compression"
+    ;;
   memory|remember|mem|recall|promote|update-memory|shared-memory)
     ROLE="memory-operator"
     TASK_TYPE="memory"

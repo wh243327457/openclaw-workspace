@@ -77,6 +77,7 @@ function isModelHealthy(modelId) {
 const ROLE_PREFERENCES = {
   coordinator: ['chat', 'daily', 'coding', 'reasoning', 'creative'],
   memory:      ['chat', 'daily'],
+  compression: ['analysis', 'memory', 'daily', 'chat'],
   skills:      ['coding', 'reasoning', 'analysis'],
   execution:   ['coding', 'daily', 'analysis'],
   review:      ['reasoning', 'analysis', 'coding'],

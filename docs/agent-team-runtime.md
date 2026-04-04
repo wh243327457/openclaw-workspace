@@ -6,6 +6,7 @@
 
 - `main-assistant` -> `gpt-5.4`
 - `memory-operator` -> `MiniMax-M2.7`
+- `compression-operator` -> `MiniMax-M2.7`
 - `skill-builder` -> `gpt-5.3-codex`
 - `project-operator` -> `gpt-5.2`
 - `review-agent` -> `gpt-5.4`
@@ -20,6 +21,7 @@
 ## 快速路由
 
 - 记忆/回忆/记住 -> `memory-operator`
+- 上下文压缩/阶段摘要/长对话收敛 -> `compression-operator`
 - 技能/模板/工作流 -> `skill-builder`
 - 多步执行/项目实施 -> `project-operator`
 - 审查/风险/关键行为变更 -> `review-agent`

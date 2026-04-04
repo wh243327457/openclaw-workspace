@@ -20,6 +20,12 @@ const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, '
 
 function routeKeyword(key) {
   switch (key) {
+    case 'compression':
+    case 'compress':
+    case 'context':
+    case 'summarize-context':
+    case 'context-compress':
+      return { role: 'compression-operator', taskType: 'compression' };
     case 'memory':
     case 'remember':
     case 'mem':

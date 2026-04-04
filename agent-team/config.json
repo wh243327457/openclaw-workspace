@@ -144,6 +144,22 @@
         "gpt-5.2"
       ]
     },
+    "compression-operator": {
+      "label": "上下文压缩",
+      "role": "compression",
+      "defaultModel": "MiniMax-M2.7",
+      "groupPolicy": "silent",
+      "userFacing": false,
+      "allowTaskOverride": true,
+      "provider": null,
+      "baseUrl": null,
+      "apiKeyRef": null,
+      "className": null,
+      "fallbackModels": [
+        "gpt-5.4-mini",
+        "gpt-5.2"
+      ]
+    },
     "skill-builder": {
       "label": "技能开发",
       "role": "skills",
@@ -238,13 +254,24 @@
       ]
     },
     {
+      "taskType": "compression",
+      "order": [
+        "compression-operator",
+        "main-assistant",
+        "memory-operator",
+        "project-operator",
+        "review-agent"
+      ]
+    },
+    {
       "taskType": "analysis",
       "order": [
         "main-assistant",
         "review-agent",
         "memory-operator",
         "project-operator",
-        "skill-builder"
+        "skill-builder",
+        "compression-operator"
       ]
     }
   ],
